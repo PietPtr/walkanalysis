@@ -23,7 +23,7 @@ class BeatData:
     dominant_frequency: float
     maximum_amplitude: int
     human_readable_note: str
-    root_frequency: str
+    root_frequency: float
 
 
 def load_beats(path: Path) -> List[BeatData]:

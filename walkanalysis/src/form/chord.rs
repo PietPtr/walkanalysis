@@ -15,6 +15,11 @@ impl Chord {
         Self { notes }
     }
 
+    pub fn has_seventh(&self) -> bool {
+        // TODO: big chord refactor where we define the notes not as a vec but as a hashmap of chordtone to note
+        self.notes.len() > 3
+    }
+
     pub fn minor(root: Note) -> Self {
         let third = root.add_interval(Interval::MinorThird);
         let fifth = root.add_interval(Interval::PerfectFifth);
@@ -44,6 +49,18 @@ impl Chord {
         } else {
             unimplemented!("Cannot spell {}/{} automatically", sharp, flat)
         }
+    }
+
+    pub fn role(&self, note: Note) -> ChordTone {
+        self.notes
+            .iter()
+            .position(|&n| n == note)
+            .map(|index| ChordTone::from_note_index(index))
+            .unwrap_or(ChordTone::NoChordTone)
+    }
+
+    pub fn note(&self, chord_tone: ChordTone) -> Option<Note> {
+        self.notes.get(chord_tone.to_note_index()).copied()
     }
 }
 
@@ -79,5 +96,36 @@ impl std::fmt::Display for WrittenChord {
             write!(f, "{} ", note)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ChordTone {
+    Root,
+    Third,
+    Fifth,
+    Seventh,
+    NoChordTone,
+}
+
+impl ChordTone {
+    fn from_note_index(index: usize) -> Self {
+        match index {
+            0 => ChordTone::Root,
+            1 => ChordTone::Third,
+            2 => ChordTone::Fifth,
+            3 => ChordTone::Seventh,
+            _ => ChordTone::NoChordTone,
+        }
+    }
+
+    fn to_note_index(&self) -> usize {
+        match self {
+            ChordTone::Root => 0,
+            ChordTone::Third => 1,
+            ChordTone::Fifth => 2,
+            ChordTone::Seventh => 3,
+            ChordTone::NoChordTone => 99,
+        }
     }
 }

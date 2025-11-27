@@ -1,6 +1,10 @@
 use std::path::Path;
 
-use walkanalysis::{form, transcribe::transcribe::{DEFAULT_SETTINGS, Transcription}};
+use walkanalysis::{
+    exercise::{analysis::Analysis, arpeggios_up::ArpeggiosUp, Exercise},
+    form::form::Form,
+    transcribe::transcribe::{Transcription, DEFAULT_SETTINGS},
+};
 
 #[test]
 fn test_transcription() {
@@ -11,7 +15,11 @@ fn test_transcription() {
     )
     .unwrap();
 
-    TODO: write functions that can fit a transcription to a key and to a form
-    for a key: need to know the role of each note and annotate that
-    for a form: need to know the role of each note during each chord and annotate that
+    let form = Form::open("tests/data/forms/autumn_leaves.json").unwrap();
+
+    let analysis = Analysis::analyze(transcription, form);
+
+    let mut exercise = ArpeggiosUp {};
+
+    println!("{}", exercise.correct(analysis));
 }

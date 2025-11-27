@@ -13,14 +13,13 @@ use crate::form::note::Note;
 /// Given a wav file and a tempo, works out the notes that were played,
 /// leaving holes where it doesn't know
 pub struct Transcription {
-    notes: Vec<PlayedNote>,
+    pub(crate) notes: Vec<PlayedNote>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlayedNote {
     Surely(Note),
-    Options(Vec<Note>),
     Silence,
-    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -106,7 +105,7 @@ impl Transcription {
                 .iter()
                 .take(half)
                 .enumerate()
-                .filter(|(i, bin)| {
+                .filter(|(_i, bin)| {
                     bin.norm_sqr() > POSSIBLE_ROOT_RELATIVE_HEIGHT_TO_DOMINANT * max_mag
                 })
                 .collect::<Vec<_>>();

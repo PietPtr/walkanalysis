@@ -9,7 +9,7 @@ pub struct Note {
     index: i32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct WrittenNote {
     pub name: NoteName,
     pub accidental: Accidental,
@@ -87,7 +87,7 @@ impl Note {
             NoteName::D => 5,
             NoteName::E => 7,
             NoteName::F => 8,
-            NoteName::G => 9,
+            NoteName::G => 10,
         };
 
         index += accidental.value();
@@ -157,7 +157,7 @@ impl Note {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NoteName {
     A,
     B,
@@ -197,7 +197,7 @@ impl std::fmt::Display for NoteName {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Accidental {
     Natural,
     Sharp,
