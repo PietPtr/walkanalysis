@@ -4,3 +4,4 @@ pub mod interval;
 pub mod key;
 pub mod note;
 pub mod scale;
+pub mod songs;

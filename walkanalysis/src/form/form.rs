@@ -8,6 +8,7 @@ use crate::form::{chord::Chord, key::Key};
 pub struct Form {
     pub tempo: u32,
     pub music: Vec<FormPiece>,
+    // TODO: excuses: bars that are non-standard or may be interpreted more freely and are not checked?
 }
 
 // Defines a bar of 4/4 form
@@ -60,19 +61,9 @@ impl Form {
         Ok(serde_json::from_reader(file)?)
     }
 
-    pub fn where_are_we(&self, beat_number: usize) -> Option<FormPiece> {
-        // TODO: kinda inefficient
-        let mut beat = 0;
-        let mut last_piece = self.music.first().expect("Empty music!").clone();
-
-        for piece in self.music.iter() {
-            if beat >= beat_number {
-                return Some(last_piece);
-            }
-            beat += piece.length_in_beats();
-            last_piece = piece.clone();
-        }
-
-        return None;
+    pub fn length_in_beats(&self) -> usize {
+        self.music
+            .iter()
+            .fold(0, |acc, elem| acc + elem.length_in_beats())
     }
 }

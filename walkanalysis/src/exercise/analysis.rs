@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     form::{
@@ -33,7 +33,7 @@ pub enum NoteAnalysis {
 impl Analysis {
     /// Analyzes the roles of the notes played according to the transcription
     /// in the key and chord context of the given form
-    pub fn analyze(transcription: Transcription, form: Form) -> Analysis {
+    pub fn analyze(transcription: Transcription, form: &Form) -> Analysis {
         let mut beat_analysis = HashMap::new();
         let mut form_analysis = vec![];
 
@@ -72,6 +72,7 @@ impl Analysis {
                         FormPiece::ChordBar(_) => NoteAnalysis::Silence,
                         FormPiece::HalfBar(_) => NoteAnalysis::Silence,
                     },
+                    PlayedNote::Unknown => NoteAnalysis::Silence,
                 })
                 .collect::<Vec<_>>();
 
@@ -87,5 +88,77 @@ impl Analysis {
             beat_analysis,
             form_analysis,
         }
+    }
+}
+
+/// To what extent an analysis of a transcription conformes to the exercise
+#[derive(Debug, Clone)]
+pub struct Correction {
+    pub amount_of_beats: usize,
+    /// All beats where something incorrect was played
+    pub mistakes: Vec<Mistake>,
+}
+
+impl Correction {
+    pub fn score(&self) -> f32 {
+        1.0 - (self.mistakes.len() as f32 / self.amount_of_beats as f32)
+    }
+}
+
+impl Display for Correction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut sortable = self.mistakes.clone();
+        sortable.sort_by(|m1, m2| m1.beat.cmp(&m2.beat));
+
+        for mistake in sortable.iter() {
+            writeln!(f, "{}", mistake)?
+        }
+        writeln!(f, "{:.1}% correct.", self.score() * 100.)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Mistake {
+    pub beat: u32,
+    pub mistake: MistakeKind,
+}
+
+impl Display for Mistake {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}.{}] {}",
+            self.beat / 4,
+            self.beat % 4 + 1,
+            self.mistake
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MistakeKind {
+    WrongNote { played: Note, expected: Note },
+    ExpectedSilence { found: NoteAnalysis },
+    ExpectedNote { found: NoteAnalysis },
+}
+
+impl Display for MistakeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MistakeKind::WrongNote { played, expected } => write!(
+                f,
+                "Wrong note, played {} expected {}.",
+                played.flat(),
+                expected.flat()
+            )?,
+            MistakeKind::ExpectedSilence { found } => {
+                write!(f, "Expected silence, found {:?}", found)?
+            }
+            MistakeKind::ExpectedNote { found } => {
+                write!(f, "Expected some note, found {:?}", found)?
+            }
+        }
+        Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     exercise::{
-        analysis::{Analysis, NoteAnalysis},
-        Correction, Exercise, Mistake, MistakeKind,
+        analysis::{Analysis, Correction, Mistake, MistakeKind, NoteAnalysis},
+        Exercise,
     },
     form::{chord::ChordTone, form::FormPiece},
 };
@@ -9,7 +9,7 @@ use crate::{
 pub struct ArpeggiosUp {}
 
 impl Exercise for ArpeggiosUp {
-    const EXPLANATION: &str = "On every first beat, play the root of the chord. On every second beat the third, then the fifth, then the seventh. If the chord defines no seventh, play the root again.";
+    // const EXPLANATION: &str = "On every first beat, play the root of the chord. On every second beat the third, then the fifth, then the seventh. If the chord defines no seventh, play the root again.";
 
     fn correct(&mut self, analysis: Analysis) -> Correction {
         let mut mistakes = Vec::new();

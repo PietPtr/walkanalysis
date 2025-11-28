@@ -1,5 +1,3 @@
 [workspace]
-members = ["walkanalysis"
-]
+members = ["walkanalysis", "wa_plugin", "wa_plugin/xtask"]
 resolver = "2"
-
