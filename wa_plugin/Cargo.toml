@@ -12,7 +12,6 @@ description = "todo"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-iced = "0.13.1"
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = [
     "assert_process_allocs",
     "standalone",

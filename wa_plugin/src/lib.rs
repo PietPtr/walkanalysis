@@ -2,7 +2,10 @@ mod editor;
 
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
-use std::{fmt::Display, sync::Arc};
+use std::{
+    fmt::Display,
+    sync::{Arc, RwLock},
+};
 use walkanalysis::{
     exercise::{analysis::Analysis, arpeggios_up::ArpeggiosUp, Exercise},
     form::{
@@ -12,7 +15,9 @@ use walkanalysis::{
     transcribe::transcribe::{AudioSettings, Transcription, DEFAULT_SETTINGS},
 };
 
-#[derive(Debug, Enum, PartialEq, Clone, Copy)]
+use crate::editor::WalkanalysisSharedState;
+
+#[derive(Debug, Enum, PartialEq, Clone, Copy, Eq)]
 pub enum ExerciseKind {
     ArpeggiosUp,
 }
@@ -25,6 +30,8 @@ impl ExerciseKind {
             ExerciseKind::ArpeggiosUp => Box::new(ArpeggiosUp {}),
         }
     }
+
+    const ALL: [ExerciseKind; 1] = [ExerciseKind::ArpeggiosUp];
 }
 
 impl Display for ExerciseKind {
@@ -35,7 +42,7 @@ impl Display for ExerciseKind {
     }
 }
 
-#[derive(Debug, Enum, PartialEq, Clone, Copy)]
+#[derive(Debug, Enum, PartialEq, Clone, Copy, Eq)]
 pub enum FormKind {
     Test,
     AutumnLeaves,
@@ -60,6 +67,12 @@ impl FormKind {
             FormKind::AllTheThingsYouAre => todo!(),
         }
     }
+
+    const ALL: [FormKind; 3] = [
+        FormKind::Test,
+        FormKind::AllTheThingsYouAre,
+        FormKind::AutumnLeaves,
+    ];
 }
 
 unsafe impl Sync for FormKind {}
@@ -72,6 +85,7 @@ pub struct WalkAnalysis {
     /// Only starts if the user starts recording and playing at beat 0
     data: DataToAnalyze,
     form_cache: Option<FormCache>,
+    state: Arc<RwLock<WalkanalysisSharedState>>,
 }
 
 pub struct FormCache {
@@ -106,9 +120,6 @@ impl DataToAnalyze {
 pub struct WalkAnalysisParams {
     #[id = "exercise"]
     pub exercise: EnumParam<ExerciseKind>,
-    #[id = "form"]
-    pub form: EnumParam<FormKind>,
-
     #[persist = "editor-state"]
     editor_state: Arc<IcedState>,
 }
@@ -124,6 +135,12 @@ impl Default for WalkAnalysis {
                 last_saved_beat_pos: None,
             },
             form_cache: None,
+            state: Arc::new(RwLock::new(WalkanalysisSharedState {
+                selected_form: FormKind::Test,
+                selected_exercise: ExerciseKind::ArpeggiosUp,
+                correction: None,
+                beat_pos: None,
+            })),
         }
     }
 }
@@ -132,7 +149,6 @@ impl Default for WalkAnalysisParams {
     fn default() -> Self {
         Self {
             exercise: EnumParam::new("Exercise", ExerciseKind::ArpeggiosUp),
-            form: EnumParam::new("Form", FormKind::AutumnLeaves),
             editor_state: editor::default_state(),
         }
     }
@@ -174,7 +190,7 @@ impl Plugin for WalkAnalysis {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(self.params.clone(), self.params.editor_state.clone())
+        editor::create(self.state.clone(), self.params.editor_state.clone())
     }
 
     fn initialize(
@@ -212,7 +228,8 @@ impl Plugin for WalkAnalysis {
                 && context.transport().pos_beats() <= Some(0.)
             {
                 self.data.acquizition_state = DataAcquizitionState::Acquiring;
-                let current_form = self.params.form.value();
+                let current_form = self.state.read().unwrap().selected_form;
+
                 let form = current_form.form();
                 let form_length = form.length_in_beats();
                 self.form_cache = Some(FormCache {
@@ -221,7 +238,7 @@ impl Plugin for WalkAnalysis {
                     length: form_length,
                 });
                 println!(
-                    "Started data acquisition for {:?}, {} measures",
+                    "Started data acquisition for {}, {} measures",
                     current_form,
                     form_length / 4
                 );
@@ -229,6 +246,11 @@ impl Plugin for WalkAnalysis {
         }
 
         if let DataAcquizitionState::Acquiring = self.data.acquizition_state {
+            {
+                let mut state = self.state.write().unwrap();
+                state.beat_pos = context.transport().pos_beats();
+            }
+
             // Take care of knowing the tempo of the data
             match (self.data.tempo, context.transport().tempo) {
                 (None, None) => todo!(),
@@ -309,7 +331,12 @@ impl Plugin for WalkAnalysis {
                 let analysis = Analysis::analyze(transcription, &form_cache.form);
                 println!("{:?}", analysis);
                 let correction = self.params.exercise.value().exercise().correct(analysis);
-                println!("{:?}", correction)
+                println!("{:?}", correction);
+
+                {
+                    let mut state = self.state.write().unwrap();
+                    state.correction = Some(correction)
+                }
             }
         }
 
