@@ -9,9 +9,7 @@ pub fn autumn_leaves() -> Form {
         tempo: 110,
         music: vec![
             FormPiece::Key(Key::new(G, Quality::Minor)),
-            FormPiece::CountInBar,
-            FormPiece::CountInBar,
-            FormPiece::LineBreak,
+            FormPiece::CountOff,
             // A section
             bar(C.min7()),
             bar(F.dominant7()),

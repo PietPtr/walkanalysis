@@ -18,7 +18,7 @@ impl Exercise for ArpeggiosUp {
             // every first beat of a bar is the root, second is the third, third is the fifth, fourth is the seventh or root if no seventh
             match form_piece {
                 FormPiece::Key(_) => (),
-                FormPiece::CountInBar => {
+                FormPiece::CountOff => {
                     if *note_analysis != NoteAnalysis::Silence {
                         mistakes.push(Mistake {
                             beat,

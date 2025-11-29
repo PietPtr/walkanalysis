@@ -1,4 +1,5 @@
 mod editor;
+pub mod fonts;
 
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;

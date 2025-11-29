@@ -4,11 +4,11 @@ use std::sync::{Arc, RwLock};
 use nih_plug::prelude::{Editor, GuiContext};
 use nih_plug_iced::*;
 use walkanalysis::{
-    exercise::analysis::{Analysis, Correction},
+    exercise::analysis::{Analysis, Correction, Mistake, NoteAnalysis},
     form::form::FormPiece,
 };
 
-use crate::{ExerciseKind, FormKind};
+use crate::{fonts, ExerciseKind, FormKind};
 
 pub(crate) fn default_state() -> Arc<IcedState> {
     IcedState::from_size(500, 706)
@@ -48,6 +48,57 @@ pub enum Message {
     ExerciseSelected(ExerciseKind),
 }
 
+pub struct WrittenBar {
+    form_piece: FormPiece,
+    analyzed_beats: [Option<NoteAnalysis>; 4],
+    correction_beats: [Option<Mistake>; 4],
+    current_beat: Option<u16>,
+}
+
+impl WrittenBar {
+    pub fn view<'a>(&self) -> Element<'a, Message> {
+        let chord_symbol: Element<'a, Message> = match &self.form_piece {
+            FormPiece::Key(_) => unreachable!(),
+            FormPiece::LineBreak => unreachable!(),
+            FormPiece::CountOff => unreachable!(),
+            FormPiece::ChordBar(chord) => Text::new(ascii(format!("{}", chord.flat_symbol())))
+                .font(fonts::EB_GARAMOND_MEDIUM)
+                .size(24)
+                .into(), // TODO: determine sharp / flat from form
+            FormPiece::HalfBar(chord1, chord2) => Row::new()
+                .push(
+                    Text::new(ascii(format!("{}", chord1.flat_symbol())))
+                        .font(fonts::EB_GARAMOND_MEDIUM)
+                        .width(Length::Fill),
+                )
+                .push(
+                    Text::new(ascii(format!("{}", chord2.flat_symbol())))
+                        .font(fonts::EB_GARAMOND_MEDIUM)
+                        .width(Length::Fill),
+                )
+                .into(),
+        };
+
+        let mut beats = Row::new();
+
+        for i in 0..4 {
+            beats = beats
+                .push(
+                    Text::new(format!("{}", i + 1))
+                        .width(Length::Fill)
+                        .font(fonts::ROBOTO_MONO_REGULAR),
+                )
+                .align_items(Alignment::Center);
+        }
+
+        Column::new()
+            .push(chord_symbol)
+            .push(beats)
+            .width(Length::Fill)
+            .into()
+    }
+}
+
 type WalkanalysisInitializationType = Arc<RwLock<WalkanalysisSharedState>>;
 
 impl WalkanalysisEditor {
@@ -55,34 +106,24 @@ impl WalkanalysisEditor {
         let current_state = self.state.read().unwrap();
         let form = current_state.selected_form.form();
         let mut column = Column::new();
-
         let new_row = || Row::new().width(Length::Fill).padding(16);
 
         let mut row = new_row();
         for form_piece in form.music {
+            let new_form_piece = form_piece.clone();
             match form_piece {
                 FormPiece::Key(_) => (), // TODO: display key
-                FormPiece::CountInBar => {
-                    row = row.push(Text::new("1 2 3 4").width(Length::Fill));
+                FormPiece::CountOff => {
+                    // TODO: show live count-down near title or something
                 }
-                FormPiece::ChordBar(chord) => {
-                    let text =
-                        Text::new(ascii(format!("{}", chord.flat_symbol()))).width(Length::Fill);
-                    row = row.push(text);
-                } // TODO: determine sharp / flat from form
-                FormPiece::HalfBar(chord1, chord2) => {
-                    let symbols = Row::new()
-                        .push(
-                            Text::new(ascii(format!("{}", chord1.flat_symbol())))
-                                .width(Length::Fill),
-                        )
-                        .push(
-                            Text::new(ascii(format!("{}", chord2.flat_symbol())))
-                                .width(Length::Fill),
-                        )
-                        .width(Length::Fill);
-
-                    row = row.push(symbols);
+                FormPiece::ChordBar(_) | FormPiece::HalfBar(_, _) => {
+                    let bar = WrittenBar {
+                        form_piece: new_form_piece,
+                        analyzed_beats: [None; 4],
+                        correction_beats: [const { None }; 4],
+                        current_beat: None,
+                    };
+                    row = row.push(bar.view())
                 }
                 FormPiece::LineBreak => {
                     column = column.push(row);
@@ -158,23 +199,34 @@ impl IcedEditor for WalkanalysisEditor {
             Message::ExerciseSelected,
         );
 
+        let count_off_text = Text::new(format!(
+            "{}",
+            current_state.beat_pos.map(|b| countoff(b)).unwrap_or("")
+        ));
+
         let picker_row = Row::new()
             .padding(4)
             .spacing(8)
             .push(form_picker)
-            .push(exercise_picker);
+            .push(exercise_picker)
+            .push(count_off_text);
+
+        let test = Container::new(picker_row)
+            .align_x(alignment::Horizontal::Right)
+            .style(container::Style {
+                ..container::Style::default()
+            });
 
         Column::new()
             .align_items(Alignment::Center)
-            .push(picker_row)
+            .push(test)
             .push(
                 Text::new(format!("{}", current_state.selected_form))
-                    .font(assets::NOTO_SANS_LIGHT)
-                    .size(30)
-                    .height(50.into())
-                    .width(Length::Fill)
-                    .horizontal_alignment(alignment::Horizontal::Center)
-                    .vertical_alignment(alignment::Vertical::Bottom),
+                    .font(fonts::EB_GARAMOND_MEDIUM)
+                    .size(40),
+                // .width(Length::Fill)
+                // .horizontal_alignment(alignment::Horizontal::Center)
+                // .vertical_alignment(alignment::Vertical::Bottom),
             )
             .push(form_and_correction)
             .into()
@@ -187,5 +239,20 @@ impl IcedEditor for WalkanalysisEditor {
             b: 0.98,
             a: 1.0,
         }
+    }
+}
+
+fn countoff(beat_pos: f64) -> &'static str {
+    let beat_pos = beat_pos.floor() as usize;
+    match beat_pos {
+        0 => "1",
+        1 => "1",
+        2 => "2",
+        3 => "2",
+        4 => "1",
+        5 => "2",
+        6 => "3",
+        7 => "4",
+        _ => "",
     }
 }

@@ -17,8 +17,8 @@ pub enum FormPiece {
     /// Set the key of the piece, if absent, assumes C major.
     /// This is necessary to determine note roles
     Key(Key),
-    /// Four beats of silence
-    CountInBar,
+    /// expects 8 beats of counting of the tune
+    CountOff,
     /// A bar where a single chord is played the whole time
     ChordBar(Chord),
     /// A bar with two chords held for a half note
@@ -31,7 +31,7 @@ impl FormPiece {
     pub fn length_in_beats(&self) -> usize {
         match self {
             FormPiece::Key(_) => 0,
-            FormPiece::CountInBar => 4,
+            FormPiece::CountOff => 8,
             FormPiece::ChordBar(_) => 4,
             FormPiece::HalfBar(_, _) => 4,
             FormPiece::LineBreak => 0,
@@ -43,7 +43,7 @@ impl Display for FormPiece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FormPiece::Key(key) => write!(f, "{}", key),
-            FormPiece::CountInBar => write!(f, "Count in"),
+            FormPiece::CountOff => write!(f, "Count in"),
             FormPiece::ChordBar(chord) => write!(f, "𝅝 {}/{}", chord.sharp(), chord.flat()),
             FormPiece::HalfBar(chord1, chord2) => write!(
                 f,

@@ -22,5 +22,5 @@ fn test_transcription() {
 
     let mut exercise = ArpeggiosUp {};
 
-    println!("{}", exercise.correct(analysis));
+    println!("{}", exercise.correct(&analysis));
 }

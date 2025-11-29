@@ -10,8 +10,7 @@ pub fn test() -> Form {
         tempo: 110,
         music: vec![
             FormPiece::Key(Key::new(G, Quality::Major)),
-            FormPiece::CountInBar,
-            FormPiece::LineBreak,
+            FormPiece::CountOff,
             bar(G.maj7()),
             bar(A.m7b5()),
             bar(D.dominant7()),
