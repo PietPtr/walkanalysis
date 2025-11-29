@@ -62,6 +62,65 @@ impl Chord {
     pub fn note(&self, chord_tone: ChordTone) -> Option<Note> {
         self.notes.get(chord_tone.to_note_index()).copied()
     }
+
+    pub fn symbol(&self) -> Option<String> {
+        // start with root
+        // if it has a minor third, add min
+        // if it has a tritone, add b5
+        // if it has a minor seventh, add 7
+        // if it has a major seventh, add maj7
+
+        let interval = |note_index_bottom, note_index_top| {
+            self.notes
+                .get(note_index_bottom)
+                .copied()
+                .and_then(|root| {
+                    self.notes
+                        .get(note_index_top)
+                        .copied()
+                        .map(|third| (root, third))
+                })
+                .and_then(|(root, third)| Interval::find(root, third))
+        };
+
+        let third = interval(0, 1);
+        let fifth = interval(0, 2);
+        let seventh = interval(0, 3);
+
+        let mut symbol = "".to_string();
+
+        if third == Some(Interval::MinorThird) {
+            symbol.push_str("m");
+        }
+
+        if seventh == Some(Interval::MinorSeventh) {
+            symbol.push_str("7");
+        }
+
+        if fifth == Some(Interval::Tritone) {
+            symbol.push_str("♭5");
+        }
+
+        if seventh == Some(Interval::MajorSeventh) {
+            symbol.push_str("maj7");
+        }
+        Some(symbol)
+    }
+
+    pub fn flat_symbol(&self) -> String {
+        format!(
+            "{}{}",
+            self.flat().root(),
+            self.symbol().unwrap_or("".to_string())
+        )
+    }
+    pub fn sharp_symbol(&self) -> String {
+        format!(
+            "{}{}",
+            self.sharp().root(),
+            self.symbol().unwrap_or("".to_string())
+        )
+    }
 }
 
 pub struct WrittenChord {
@@ -69,6 +128,10 @@ pub struct WrittenChord {
 }
 
 impl WrittenChord {
+    pub fn root(&self) -> WrittenNote {
+        self.notes.get(0).copied().unwrap()
+    }
+
     pub fn is_spelled_correctly(&self) -> bool {
         let Some(&root) = self.notes.first() else {
             return false;

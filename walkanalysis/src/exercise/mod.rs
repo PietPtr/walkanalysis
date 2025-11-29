@@ -8,5 +8,5 @@ pub trait Exercise {
     // const EXPLANATION: &str;
     /// Correction function: given an analysis of a transcription, how many beats fit
     /// both the form and the exercise?
-    fn correct(&mut self, analysis: Analysis) -> Correction;
+    fn correct(&mut self, analysis: &Analysis) -> Correction;
 }

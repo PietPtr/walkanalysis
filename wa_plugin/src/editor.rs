@@ -1,15 +1,14 @@
 use std::sync::{Arc, RwLock};
 
 // use iced::PickList;
-use nih_plug::{
-    params::Param,
-    prelude::{Editor, GuiContext},
-};
-use nih_plug_iced::widgets as nih_widgets;
+use nih_plug::prelude::{Editor, GuiContext};
 use nih_plug_iced::*;
-use walkanalysis::exercise::analysis::Correction;
+use walkanalysis::{
+    exercise::analysis::{Analysis, Correction},
+    form::form::FormPiece,
+};
 
-use crate::{ExerciseKind, FormKind, WalkAnalysisParams};
+use crate::{ExerciseKind, FormKind};
 
 pub(crate) fn default_state() -> Arc<IcedState> {
     IcedState::from_size(500, 706)
@@ -22,11 +21,16 @@ pub(crate) fn create(
     create_iced_editor::<WalkanalysisEditor>(editor_state, init)
 }
 
+fn ascii(str: String) -> String {
+    str.replace("♭", "b").replace("♯", "#")
+}
+
 /// All the state shared between audio and UI thread
 pub struct WalkanalysisSharedState {
     pub selected_form: FormKind,
     pub selected_exercise: ExerciseKind,
     pub correction: Option<Correction>,
+    pub analysis: Option<Analysis>,
     pub beat_pos: Option<f64>,
 }
 
@@ -40,12 +44,62 @@ pub struct WalkanalysisEditor {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ParamUpdate(nih_widgets::ParamMessage),
     FormSelected(FormKind),
     ExerciseSelected(ExerciseKind),
 }
 
 type WalkanalysisInitializationType = Arc<RwLock<WalkanalysisSharedState>>;
+
+impl WalkanalysisEditor {
+    fn view_form_and_correction<'a>(&self) -> Element<'a, Message> {
+        let current_state = self.state.read().unwrap();
+        let form = current_state.selected_form.form();
+        let mut column = Column::new();
+
+        let new_row = || Row::new().width(Length::Fill).padding(16);
+
+        let mut row = new_row();
+        for form_piece in form.music {
+            match form_piece {
+                FormPiece::Key(_) => (), // TODO: display key
+                FormPiece::CountInBar => {
+                    row = row.push(Text::new("1 2 3 4").width(Length::Fill));
+                }
+                FormPiece::ChordBar(chord) => {
+                    let text =
+                        Text::new(ascii(format!("{}", chord.flat_symbol()))).width(Length::Fill);
+                    row = row.push(text);
+                } // TODO: determine sharp / flat from form
+                FormPiece::HalfBar(chord1, chord2) => {
+                    let symbols = Row::new()
+                        .push(
+                            Text::new(ascii(format!("{}", chord1.flat_symbol())))
+                                .width(Length::Fill),
+                        )
+                        .push(
+                            Text::new(ascii(format!("{}", chord2.flat_symbol())))
+                                .width(Length::Fill),
+                        )
+                        .width(Length::Fill);
+
+                    row = row.push(symbols);
+                }
+                FormPiece::LineBreak => {
+                    column = column.push(row);
+                    row = new_row()
+                }
+            }
+        }
+        column = column.push(row);
+
+        // each chord symbol should be accompanied in a column with 4 thingos that:
+        // once available, show the note analysis (role in chord if any, degree as a background color, chromatic is gray-ish inbetween color)
+        // otherwise should still take the same amount of space
+        // if the current beat is at that beat then it must be shown somehow
+
+        column.into()
+    }
+}
 
 impl IcedEditor for WalkanalysisEditor {
     type Executor = executor::Default;
@@ -73,12 +127,11 @@ impl IcedEditor for WalkanalysisEditor {
 
     fn update(
         &mut self,
-        window: &mut WindowQueue,
+        _window: &mut WindowQueue,
         message: Self::Message,
     ) -> Command<Self::Message> {
         let mut state = self.state.write().unwrap();
         match message {
-            Message::ParamUpdate(param_message) => self.handle_param_message(param_message),
             Message::FormSelected(form_kind) => state.selected_form = form_kind,
             Message::ExerciseSelected(exercise) => state.selected_exercise = exercise,
         }
@@ -88,6 +141,8 @@ impl IcedEditor for WalkanalysisEditor {
 
     fn view(&mut self) -> Element<'_, Self::Message> {
         let current_state = self.state.read().unwrap();
+
+        let form_and_correction = self.view_form_and_correction();
 
         let form_picker = PickList::new(
             &mut self.form_selector_state,
@@ -121,12 +176,7 @@ impl IcedEditor for WalkanalysisEditor {
                     .horizontal_alignment(alignment::Horizontal::Center)
                     .vertical_alignment(alignment::Vertical::Bottom),
             )
-            .push(
-                Text::new(format!("{:?}", current_state.correction))
-                    .font(assets::NOTO_SANS_LIGHT)
-                    .size(12),
-            )
-            .push(Text::new(format!("{:?}", current_state.beat_pos)))
+            .push(form_and_correction)
             .into()
     }
 

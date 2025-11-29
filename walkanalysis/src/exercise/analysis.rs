@@ -64,13 +64,19 @@ impl Analysis {
                         FormPiece::Key(_) => unreachable!(),
                         FormPiece::CountInBar => NoteAnalysis::NoteDuringSilence { note },
                         FormPiece::ChordBar(chord) => analyze_with_chord(note, chord),
-                        FormPiece::HalfBar(chord) => analyze_with_chord(note, chord),
+                        FormPiece::HalfBar(chord1, chord2) => match beat_number % 4 {
+                            0 | 1 => analyze_with_chord(note, chord1),
+                            2 | 3 => analyze_with_chord(note, chord2),
+                            _ => unreachable!(),
+                        },
+                        FormPiece::LineBreak => unreachable!(),
                     },
                     PlayedNote::Silence => match form_piece {
                         FormPiece::Key(_) => unreachable!(),
                         FormPiece::CountInBar => NoteAnalysis::Silence,
                         FormPiece::ChordBar(_) => NoteAnalysis::Silence,
-                        FormPiece::HalfBar(_) => NoteAnalysis::Silence,
+                        FormPiece::HalfBar(_, _) => NoteAnalysis::Silence,
+                        FormPiece::LineBreak => unreachable!(),
                     },
                     PlayedNote::Unknown => NoteAnalysis::Silence,
                 })

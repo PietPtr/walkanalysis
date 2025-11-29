@@ -21,8 +21,10 @@ pub enum FormPiece {
     CountInBar,
     /// A bar where a single chord is played the whole time
     ChordBar(Chord),
-    /// A bar with a chord held for a half note
-    HalfBar(Chord),
+    /// A bar with two chords held for a half note
+    HalfBar(Chord, Chord),
+    /// Where to break the line of chords
+    LineBreak,
 }
 
 impl FormPiece {
@@ -31,7 +33,8 @@ impl FormPiece {
             FormPiece::Key(_) => 0,
             FormPiece::CountInBar => 4,
             FormPiece::ChordBar(_) => 4,
-            FormPiece::HalfBar(_) => 2,
+            FormPiece::HalfBar(_, _) => 4,
+            FormPiece::LineBreak => 0,
         }
     }
 }
@@ -42,7 +45,15 @@ impl Display for FormPiece {
             FormPiece::Key(key) => write!(f, "{}", key),
             FormPiece::CountInBar => write!(f, "Count in"),
             FormPiece::ChordBar(chord) => write!(f, "𝅝 {}/{}", chord.sharp(), chord.flat()),
-            FormPiece::HalfBar(chord) => write!(f, "𝅗𝅥 {}/{}", chord.sharp(), chord.flat()),
+            FormPiece::HalfBar(chord1, chord2) => write!(
+                f,
+                "𝅗𝅥 {}/{} 𝅗𝅥 {}/{}",
+                chord1.sharp(),
+                chord1.flat(),
+                chord2.sharp(),
+                chord2.flat()
+            ),
+            FormPiece::LineBreak => write!(f, "\n"),
         }
     }
 }
@@ -51,8 +62,8 @@ pub fn bar(chord: Chord) -> FormPiece {
     FormPiece::ChordBar(chord)
 }
 
-pub fn half_bar(chord: Chord) -> FormPiece {
-    FormPiece::HalfBar(chord)
+pub fn half_bar(chord1: Chord, chord2: Chord) -> FormPiece {
+    FormPiece::HalfBar(chord1, chord2)
 }
 
 impl Form {

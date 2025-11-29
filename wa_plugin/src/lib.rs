@@ -118,8 +118,6 @@ impl DataToAnalyze {
 
 #[derive(Params)]
 pub struct WalkAnalysisParams {
-    #[id = "exercise"]
-    pub exercise: EnumParam<ExerciseKind>,
     #[persist = "editor-state"]
     editor_state: Arc<IcedState>,
 }
@@ -140,6 +138,7 @@ impl Default for WalkAnalysis {
                 selected_exercise: ExerciseKind::ArpeggiosUp,
                 correction: None,
                 beat_pos: None,
+                analysis: None,
             })),
         }
     }
@@ -148,7 +147,6 @@ impl Default for WalkAnalysis {
 impl Default for WalkAnalysisParams {
     fn default() -> Self {
         Self {
-            exercise: EnumParam::new("Exercise", ExerciseKind::ArpeggiosUp),
             editor_state: editor::default_state(),
         }
     }
@@ -330,12 +328,19 @@ impl Plugin for WalkAnalysis {
                 println!("{:?}", transcription);
                 let analysis = Analysis::analyze(transcription, &form_cache.form);
                 println!("{:?}", analysis);
-                let correction = self.params.exercise.value().exercise().correct(analysis);
+                let correction = self
+                    .state
+                    .read()
+                    .unwrap()
+                    .selected_exercise
+                    .exercise()
+                    .correct(&analysis);
                 println!("{:?}", correction);
 
                 {
                     let mut state = self.state.write().unwrap();
-                    state.correction = Some(correction)
+                    state.correction = Some(correction);
+                    state.analysis = Some(analysis);
                 }
             }
         }

@@ -6,7 +6,7 @@ use crate::form::{chord::Chord, interval::Interval};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Note {
-    index: i32,
+    pub(crate) index: i32,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
