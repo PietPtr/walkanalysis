@@ -1,7 +1,7 @@
 use crate::form::{
     form::{bar, Form, FormPiece},
     key::{Key, Quality},
-    note::{A, D, G},
+    note::*,
 };
 
 // A short test song
@@ -11,10 +11,10 @@ pub fn test() -> Form {
         music: vec![
             FormPiece::Key(Key::new(G, Quality::Major)),
             FormPiece::CountOff,
-            bar(G.maj7()),
-            bar(A.m7b5()),
-            bar(D.dominant7()),
-            bar(G.min7()),
+            bar(C.min7()),
+            bar(F.dominant7()),
+            bar(B_FLAT.maj7()),
+            bar(E_FLAT.maj7()),
             FormPiece::LineBreak,
         ],
     }

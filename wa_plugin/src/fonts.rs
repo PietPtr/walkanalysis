@@ -21,3 +21,7 @@ pub const ROBOTO_MONO_REGULAR: Font = Font::External {
     name: "Roboto Mono Regular",
     bytes: include_bytes!("../../assets/fonts/RobotoMono-Regular.ttf"),
 };
+pub const ROBOTO_MONO_MEDIUM: Font = Font::External {
+    name: "Roboto Mono Medium",
+    bytes: include_bytes!("../../assets/fonts/RobotoMono-Medium.ttf"),
+};

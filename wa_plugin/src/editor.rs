@@ -4,8 +4,8 @@ use std::sync::{Arc, RwLock};
 use nih_plug::prelude::{Editor, GuiContext};
 use nih_plug_iced::*;
 use walkanalysis::{
-    exercise::analysis::{Analysis, Correction, Mistake, NoteAnalysis},
-    form::form::FormPiece,
+    exercise::analysis::{self, Analysis, Correction, Mistake, NoteAnalysis},
+    form::{form::FormPiece, key},
 };
 
 use crate::{fonts, ExerciseKind, FormKind};
@@ -48,16 +48,63 @@ pub enum Message {
     ExerciseSelected(ExerciseKind),
 }
 
-pub struct WrittenBar {
+pub struct WrittenBar<'a> {
     form_piece: FormPiece,
-    analyzed_beats: [Option<NoteAnalysis>; 4],
-    correction_beats: [Option<Mistake>; 4],
-    current_beat: Option<u16>,
+    analyzed_beats: Option<&'a [Option<NoteAnalysis>; 4]>,
+    correction_beats: &'a [Option<Mistake>; 4],
+    /// None if this bar is not being recorded right now,
+    /// Some(beat) if the current recording is at beat beat of this bar.
+    current_beat: Option<u32>,
 }
 
-impl WrittenBar {
-    pub fn view<'a>(&self) -> Element<'a, Message> {
-        let chord_symbol: Element<'a, Message> = match &self.form_piece {
+impl<'a> WrittenBar<'a> {
+    fn view_note_analysis<'b>(analysis: &NoteAnalysis) -> Element<'b, Message> {
+        match analysis {
+            NoteAnalysis::Silence => Row::new().into(),
+            NoteAnalysis::Note {
+                note,
+                degree_in_key,
+                role_in_chord,
+            } => {
+                // chord tone is shown as a number
+                // degree scale as a color:
+                // 1     2    3    4      5   6      7
+                // green cyan blue purple red orange yellow
+                // chromatic grayed out version of inbetween color
+                let chord_tone_str = match role_in_chord {
+                    walkanalysis::form::chord::ChordTone::Root => "1",
+                    walkanalysis::form::chord::ChordTone::Third => "3",
+                    walkanalysis::form::chord::ChordTone::Fifth => "5",
+                    walkanalysis::form::chord::ChordTone::Seventh => "7",
+                    walkanalysis::form::chord::ChordTone::NoChordTone => "x",
+                };
+
+                let background_color = degree_in_key.map(|degree| match degree {
+                    key::Degree::First => Color::from_rgb8(80, 170, 120),
+                    key::Degree::Second => Color::from_rgb8(70, 160, 180),
+                    key::Degree::Third => Color::from_rgb8(70, 130, 200),
+                    key::Degree::Fourth => Color::from_rgb8(110, 100, 200),
+                    key::Degree::Fifth => Color::from_rgb8(190, 90, 120),
+                    key::Degree::Sixth => Color::from_rgb8(210, 150, 80),
+                    key::Degree::Seventh => Color::from_rgb8(220, 200, 80),
+                    key::Degree::Chromatic => Color::from_rgb8(150, 150, 150),
+                });
+
+                Container::new(Text::new(format!("{}", chord_tone_str)))
+                    .style(MyContainerStyle {
+                        background: background_color.map(|c| Background::Color(c)),
+                        ..Default::default()
+                    })
+                    .width(Length::Fill)
+                    .align_x(alignment::Horizontal::Center)
+                    .into()
+            }
+            NoteAnalysis::NoteDuringSilence { note } => Row::new().into(), // TODO: this
+        }
+    }
+
+    pub fn view<'b>(&self) -> Element<'b, Message> {
+        let chord_symbol: Element<'b, Message> = match &self.form_piece {
             FormPiece::Key(_) => unreachable!(),
             FormPiece::LineBreak => unreachable!(),
             FormPiece::CountOff => unreachable!(),
@@ -81,14 +128,30 @@ impl WrittenBar {
 
         let mut beats = Row::new();
 
-        for i in 0..4 {
-            beats = beats
-                .push(
-                    Text::new(format!("{}", i + 1))
-                        .width(Length::Fill)
-                        .font(fonts::ROBOTO_MONO_REGULAR),
-                )
-                .align_items(Alignment::Center);
+        if let Some(analyzed_beats) = self.analyzed_beats.as_ref() {
+            for (i, beat) in analyzed_beats.iter().enumerate() {
+                let Some(beat) = beat else {
+                    beats = beats
+                        .push(Text::new("-").font(fonts::ROBOTO_MONO_REGULAR))
+                        .width(Length::Fill);
+                    continue;
+                };
+
+                beats = beats.push(Self::view_note_analysis(beat));
+                println!("[{}] {:?}", i, beat);
+            }
+        } else {
+            for i in 0..4 {
+                beats = beats
+                    .push(Text::new(format!("{}", i + 1)).width(Length::Fill).font(
+                        if self.current_beat == Some(i) {
+                            fonts::ROBOTO_MONO_MEDIUM
+                        } else {
+                            fonts::ROBOTO_MONO_REGULAR
+                        },
+                    ))
+                    .align_items(Alignment::Center);
+            }
         }
 
         Column::new()
@@ -109,6 +172,7 @@ impl WalkanalysisEditor {
         let new_row = || Row::new().width(Length::Fill).padding(16);
 
         let mut row = new_row();
+        let mut form_beat_counter: u32 = 0;
         for form_piece in form.music {
             let new_form_piece = form_piece.clone();
             match form_piece {
@@ -117,11 +181,31 @@ impl WalkanalysisEditor {
                     // TODO: show live count-down near title or something
                 }
                 FormPiece::ChordBar(_) | FormPiece::HalfBar(_, _) => {
+                    let current_beat: Option<_> = current_state.beat_pos.and_then(|beat_pos| {
+                        let beat_pos = beat_pos.floor() as u32;
+                        if beat_pos >= form_beat_counter && beat_pos < form_beat_counter + 4 {
+                            Some(beat_pos % 4)
+                        } else {
+                            None
+                        }
+                    });
+
+                    let beats: [u32; 4] = [
+                        form_beat_counter,
+                        form_beat_counter + 1,
+                        form_beat_counter + 2,
+                        form_beat_counter + 3,
+                    ];
+
+                    let analyzed_beats = current_state.analysis.as_ref().map(|analysis| {
+                        beats.map(|beat| analysis.beat_analysis.get(&beat).cloned().map(|n| n.1))
+                    });
+
                     let bar = WrittenBar {
                         form_piece: new_form_piece,
-                        analyzed_beats: [None; 4],
-                        correction_beats: [const { None }; 4],
-                        current_beat: None,
+                        analyzed_beats: analyzed_beats.as_ref(),
+                        correction_beats: &[const { None }; 4],
+                        current_beat,
                     };
                     row = row.push(bar.view())
                 }
@@ -130,6 +214,7 @@ impl WalkanalysisEditor {
                     row = new_row()
                 }
             }
+            form_beat_counter += form_piece.length_in_beats();
         }
         column = column.push(row);
 
@@ -207,28 +292,34 @@ impl IcedEditor for WalkanalysisEditor {
         let picker_row = Row::new()
             .padding(4)
             .spacing(8)
+            .height(Length::Units(64))
             .push(form_picker)
             .push(exercise_picker)
-            .push(count_off_text);
-
-        let test = Container::new(picker_row)
-            .align_x(alignment::Horizontal::Right)
-            .style(container::Style {
-                ..container::Style::default()
-            });
+            .push(
+                Container::new(count_off_text)
+                    .style(MyContainerStyle {
+                        background: Some(Background::Color(Color::from_rgb8(230, 230, 230))),
+                        border_radius: 5.0,
+                        border_width: 2.0,
+                        border_color: Color::BLACK,
+                        ..Default::default()
+                    })
+                    .padding(3)
+                    .width(Length::Units(32))
+                    .height(Length::Units(32)),
+            );
 
         Column::new()
-            .align_items(Alignment::Center)
-            .push(test)
             .push(
                 Text::new(format!("{}", current_state.selected_form))
                     .font(fonts::EB_GARAMOND_MEDIUM)
-                    .size(40),
-                // .width(Length::Fill)
-                // .horizontal_alignment(alignment::Horizontal::Center)
-                // .vertical_alignment(alignment::Vertical::Bottom),
+                    .size(40)
+                    .horizontal_alignment(alignment::Horizontal::Center)
+                    .width(Length::Fill),
             )
             .push(form_and_correction)
+            .push(Space::new(Length::Units(0), Length::Fill))
+            .push(picker_row)
             .into()
     }
 
@@ -254,5 +345,37 @@ fn countoff(beat_pos: f64) -> &'static str {
         6 => "3",
         7 => "4",
         _ => "",
+    }
+}
+
+pub struct MyContainerStyle {
+    pub text_color: Option<Color>,
+    pub background: Option<Background>,
+    pub border_radius: f32,
+    pub border_width: f32,
+    pub border_color: Color,
+}
+
+impl Default for MyContainerStyle {
+    fn default() -> Self {
+        Self {
+            text_color: Default::default(),
+            background: Default::default(),
+            border_radius: Default::default(),
+            border_width: Default::default(),
+            border_color: Default::default(),
+        }
+    }
+}
+
+impl container::StyleSheet for MyContainerStyle {
+    fn style(&self) -> container::Style {
+        container::Style {
+            text_color: self.text_color,
+            background: self.background,
+            border_radius: self.border_radius,
+            border_width: self.border_width,
+            border_color: self.border_color,
+        }
     }
 }

@@ -48,7 +48,7 @@ impl Analysis {
 
             let notes_in_this_form_piece: Vec<_> = note_iter
                 .by_ref()
-                .take(form_piece.length_in_beats())
+                .take(form_piece.length_in_beats() as usize)
                 .collect();
 
             let analyze_with_chord = |note, chord: &Chord| NoteAnalysis::Note {

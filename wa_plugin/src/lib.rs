@@ -83,7 +83,7 @@ pub struct WalkAnalysis {
     /// While playing, gathers the data necessary to analyze the entire form.
     /// If _anything_ weird happens during playback (tempo changes, time goes backward),
     /// this is thrown out.
-    /// Only starts if the user starts recording and playing at beat 0
+    /// Only starts if the user starts playing/recording at beat 0
     data: DataToAnalyze,
     form_cache: Option<FormCache>,
     state: Arc<RwLock<WalkanalysisSharedState>>,
@@ -92,7 +92,7 @@ pub struct WalkAnalysis {
 pub struct FormCache {
     kind: FormKind,
     form: Form,
-    length: usize,
+    length: u32,
 }
 
 pub enum DataAcquizitionState {
@@ -215,14 +215,13 @@ impl Plugin for WalkAnalysis {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        if !(context.transport().playing && context.transport().recording) {
+        if !(context.transport().playing) {
             return ProcessStatus::Normal;
         }
 
         if let DataAcquizitionState::WaitingForStart = self.data.acquizition_state {
             // determine whether to start data acquisition
             if context.transport().playing
-                && context.transport().recording
                 && context.transport().bar_number() == Some(0)
                 && context.transport().pos_beats() <= Some(0.)
             {
@@ -326,9 +325,7 @@ impl Plugin for WalkAnalysis {
                     },
                 );
 
-                println!("{:?}", transcription);
                 let analysis = Analysis::analyze(transcription, &form_cache.form);
-                println!("{:?}", analysis);
                 let correction = self
                     .state
                     .read()

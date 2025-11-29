@@ -28,7 +28,7 @@ pub enum FormPiece {
 }
 
 impl FormPiece {
-    pub fn length_in_beats(&self) -> usize {
+    pub fn length_in_beats(&self) -> u32 {
         match self {
             FormPiece::Key(_) => 0,
             FormPiece::CountOff => 8,
@@ -72,7 +72,7 @@ impl Form {
         Ok(serde_json::from_reader(file)?)
     }
 
-    pub fn length_in_beats(&self) -> usize {
+    pub fn length_in_beats(&self) -> u32 {
         self.music
             .iter()
             .fold(0, |acc, elem| acc + elem.length_in_beats())
