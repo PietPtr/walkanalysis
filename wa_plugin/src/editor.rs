@@ -138,7 +138,20 @@ impl<'a> WrittenBar<'a> {
                 };
 
                 beats = beats.push(Self::view_note_analysis(beat));
-                println!("[{}] {:?}", i, beat);
+                if let NoteAnalysis::Note {
+                    note,
+                    degree_in_key,
+                    role_in_chord,
+                } = beat
+                {
+                    println!(
+                        "[{}] {} {:?} {:?}",
+                        i,
+                        note.flat(),
+                        degree_in_key,
+                        role_in_chord
+                    );
+                }
             }
         } else {
             for i in 0..4 {
