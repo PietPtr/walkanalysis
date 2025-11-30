@@ -4,25 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::form::{chord::Chord, interval::Interval};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Note {
-    pub(crate) index: i32,
+    index: i32,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct WrittenNote {
-    pub name: NoteName,
-    pub accidental: Accidental,
-}
-impl WrittenNote {
-    pub(crate) fn unwrite(&self) -> Note {
-        Note::new(self.name, self.accidental)
-    }
-}
-
-impl Display for WrittenNote {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.name, self.accidental)
+impl PartialEq for Note {
+    fn eq(&self, other: &Self) -> bool {
+        self.index.rem_euclid(12) == other.index.rem_euclid(12)
     }
 }
 
@@ -35,6 +24,26 @@ impl From<i32> for Note {
 }
 
 impl Note {
+    pub const fn new(note_name: NoteName, accidental: Accidental) -> Self {
+        let mut index = match note_name {
+            NoteName::A => 0,
+            NoteName::B => 2,
+            NoteName::C => 3,
+            NoteName::D => 5,
+            NoteName::E => 7,
+            NoteName::F => 8,
+            NoteName::G => 10,
+        };
+
+        index += accidental.value();
+
+        Self { index }
+    }
+
+    pub fn index(&self) -> i32 {
+        self.index
+    }
+
     pub fn spell(&self, spelling: Spelling) -> WrittenNote {
         match spelling {
             Spelling::Sharp => self.sharp(),
@@ -89,22 +98,6 @@ impl Note {
 
     pub fn add_interval(&self, interval: Interval) -> Self {
         self.add_steps(interval.steps())
-    }
-
-    pub const fn new(note_name: NoteName, accidental: Accidental) -> Self {
-        let mut index = match note_name {
-            NoteName::A => 0,
-            NoteName::B => 2,
-            NoteName::C => 3,
-            NoteName::D => 5,
-            NoteName::E => 7,
-            NoteName::F => 8,
-            NoteName::G => 10,
-        };
-
-        index += accidental.value();
-
-        Self { index }
     }
 
     pub fn min(&self) -> Chord {
@@ -266,6 +259,23 @@ impl std::fmt::Display for Accidental {
             Accidental::Flat => "♭",
         };
         write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct WrittenNote {
+    pub name: NoteName,
+    pub accidental: Accidental,
+}
+impl WrittenNote {
+    pub(crate) fn unwrite(&self) -> Note {
+        Note::new(self.name, self.accidental)
+    }
+}
+
+impl Display for WrittenNote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.name, self.accidental)
     }
 }
 

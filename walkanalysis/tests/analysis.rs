@@ -9,12 +9,34 @@ use walkanalysis::{
     transcribe::transcribe::{PlayedNote, Transcription},
 };
 
+fn assert_role(expected_degree: key::Degree, expected_role: ChordTone, na: NoteAnalysis) {
+    let NoteAnalysis::Note {
+        note: _,
+        degree_in_key,
+        role_in_chord,
+    } = na
+    else {
+        panic!("Not noteanalysis")
+    };
+
+    assert_eq!(role_in_chord, expected_role);
+    assert_eq!(expected_degree, degree_in_key);
+}
+
 #[test]
 fn test_analysis() {
     let form = Form::new(110, Key::new(G, Quality::Minor).flat(), vec![bar(C.min7())]);
 
     let transcription = Transcription {
         notes: vec![
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
             PlayedNote::Surely(C),
             PlayedNote::Surely(E_FLAT),
             PlayedNote::Surely(G),
@@ -23,20 +45,6 @@ fn test_analysis() {
     };
 
     let analysis = Analysis::analyze(transcription, &form);
-
-    let assert_role = |expected_degree: key::Degree, expected_role: ChordTone, na: NoteAnalysis| {
-        let NoteAnalysis::Note {
-            note: _,
-            degree_in_key,
-            role_in_chord,
-        } = na
-        else {
-            panic!("Not noteanalysis")
-        };
-
-        assert_eq!(role_in_chord, expected_role);
-        assert_eq!(expected_degree, degree_in_key);
-    };
 
     dbg!(&analysis);
 
@@ -60,4 +68,37 @@ fn test_analysis() {
         ChordTone::NoChordTone,
         analysis.beat_analysis.get(&3).unwrap().1,
     );
+}
+
+#[test]
+fn test_gmin() {
+    let transcription = Transcription {
+        notes: vec![
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Silence,
+            PlayedNote::Surely(G),
+            PlayedNote::Surely(D_FLAT),
+            PlayedNote::Surely(B_FLAT),
+            PlayedNote::Surely(G),
+            PlayedNote::Surely(G),
+            PlayedNote::Surely(B_FLAT),
+            PlayedNote::Surely(D_FLAT),
+            PlayedNote::Surely(F),
+        ],
+    };
+    let form = Form::new(
+        110,
+        Key::new(G, Quality::Minor).flat(),
+        vec![bar(G.min()), bar(G.min())],
+    );
+
+    let analysis = Analysis::analyze(transcription, &form);
+
+    dbg!(analysis);
 }

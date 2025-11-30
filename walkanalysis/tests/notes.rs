@@ -9,3 +9,9 @@ fn test_notes() {
         println!("{}", Note::from(n).flat());
     }
 }
+
+#[test]
+fn test_equality() {
+    dbg!(Note::from(-2) == Note::from(10));
+    dbg!(Note::from(-2).flat(), Note::from(10).flat());
+}

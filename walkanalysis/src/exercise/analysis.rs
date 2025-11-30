@@ -150,7 +150,7 @@ impl Display for Mistake {
         write!(
             f,
             "[{}.{}] {}",
-            self.beat / 4,
+            self.beat / 4 + 1,
             self.beat % 4 + 1,
             self.mistake
         )

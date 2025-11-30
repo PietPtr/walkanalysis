@@ -69,15 +69,27 @@ impl pick_list::StyleSheet for MyPicklistStyle {
     }
 }
 
-pub struct MyTogglerStyle {}
+pub struct MyTogglerStyle {
+    pub colored: bool,
+}
+
+impl Default for MyTogglerStyle {
+    fn default() -> Self {
+        Self { colored: false }
+    }
+}
 
 impl toggler::StyleSheet for MyTogglerStyle {
     fn active(&self, is_active: bool) -> toggler::Style {
         toggler::Style {
-            background: if is_active {
-                colors::RED
+            background: if self.colored {
+                if is_active {
+                    colors::RED
+                } else {
+                    colors::GREEN
+                }
             } else {
-                colors::GREEN
+                colors::GREY
             },
             background_border: None,
             foreground: Color::WHITE,

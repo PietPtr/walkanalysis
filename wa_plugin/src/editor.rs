@@ -11,7 +11,7 @@ use nih_plug_iced::{alignment::Horizontal, *};
 use walkanalysis::{
     exercise::analysis::{Analysis, Correction, Mistake, MistakeKind, NoteAnalysis},
     form::{
-        form::FormPiece,
+        form::{Form, FormPiece},
         key,
         note::{Note, Spelling},
     },
@@ -41,6 +41,7 @@ fn ascii(str: String) -> String {
 /// All the state shared between audio and UI thread
 pub struct WalkanalysisSharedState {
     pub selected_form: FormKind,
+    pub form: Form,
     pub selected_exercise: ExerciseKind,
     pub correction: Option<Correction>,
     pub analysis: Option<Analysis>,
@@ -54,6 +55,12 @@ impl WalkanalysisSharedState {
         } else {
             false
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.analysis = None;
+        self.beat_pos = None;
+        self.correction = None;
     }
 }
 
@@ -305,7 +312,7 @@ type WalkanalysisInitializationType = Arc<RwLock<WalkanalysisSharedState>>;
 impl WalkanalysisEditor {
     fn view_form_and_correction<'a>(&self) -> Element<'a, Message> {
         let current_state = self.state.read().unwrap();
-        let form = current_state.selected_form.form();
+        let form = &current_state.form;
         let mut column = Column::new();
         let new_row = || {
             Row::new()
@@ -325,9 +332,7 @@ impl WalkanalysisEditor {
             let new_form_piece = form_piece.clone();
             match form_piece {
                 FormPiece::Key(_) => (), // TODO: display key
-                FormPiece::CountOff => {
-                    // TODO: show live count-down near title or something
-                }
+                FormPiece::CountOff => {}
                 FormPiece::ChordBar(_) | FormPiece::HalfBar(_, _) => {
                     let current_beat: Option<_> = current_state.beat_pos.and_then(|beat_pos| {
                         let beat_pos = beat_pos.floor() as u32;
@@ -360,7 +365,7 @@ impl WalkanalysisEditor {
                         current_beat,
                     };
                     row = row.push(bar.view(
-                        current_state.selected_form.form().key().spell_preference(),
+                        current_state.form.key().spell_preference(),
                         self.show_correction_instead_of_analysis,
                         self.show_chord_tone_instead_of_note_in_analysis,
                         self.show_expected_instead_of_found_in_correction,
@@ -413,8 +418,15 @@ impl IcedEditor for WalkanalysisEditor {
     ) -> Command<Self::Message> {
         let mut state = self.state.write().unwrap();
         match message {
-            Message::FormSelected(form_kind) => state.selected_form = form_kind,
-            Message::ExerciseSelected(exercise) => state.selected_exercise = exercise,
+            Message::FormSelected(form_kind) => {
+                state.selected_form = form_kind;
+                state.form = form_kind.form();
+                state.clear();
+            }
+            Message::ExerciseSelected(exercise) => {
+                state.selected_exercise = exercise;
+                state.clear();
+            }
             Message::AnalysisOrCorrection(choice) => {
                 self.show_correction_instead_of_analysis = choice;
             }
@@ -436,7 +448,7 @@ impl IcedEditor for WalkanalysisEditor {
         let title = Text::new(format!(
             "{} ({})",
             current_state.selected_form,
-            current_state.selected_form.form().key()
+            current_state.form.key()
         ))
         .font(fonts::EB_GARAMOND_MEDIUM)
         .size(40)
@@ -509,7 +521,7 @@ impl IcedEditor for WalkanalysisEditor {
                     None,
                     Message::AnalysisOrCorrection,
                 )
-                .style(MyTogglerStyle {})
+                .style(MyTogglerStyle { colored: true })
                 .width(Length::Shrink),
             )
             .push(
@@ -533,7 +545,7 @@ impl IcedEditor for WalkanalysisEditor {
                     None,
                     Message::ExpectedOrFound,
                 )
-                .style(MyTogglerStyle {})
+                .style(MyTogglerStyle::default())
                 .width(Length::Shrink),
             )
             .push(
@@ -557,7 +569,7 @@ impl IcedEditor for WalkanalysisEditor {
                     None,
                     Message::ChordToneOrDegree,
                 )
-                .style(MyTogglerStyle {})
+                .style(MyTogglerStyle::default())
                 .width(Length::Shrink),
             )
             .push(

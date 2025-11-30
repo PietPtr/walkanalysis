@@ -1,4 +1,4 @@
-use walkanalysis::form::note::{A, B_FLAT, C, C_SHARP, D};
+use walkanalysis::form::{chord::ChordTone, note::*};
 
 #[test]
 fn test_chords() {
@@ -25,4 +25,11 @@ fn test_symbols() {
     println!("{}", B_FLAT.dominant7().sharp_symbol());
     println!("{}", B_FLAT.dominant7().flat_symbol());
     println!("{}", C.maj7().flat_symbol());
+}
+
+#[test]
+fn test_roles() {
+    let gmin = G.min();
+    println!("{}", gmin.note(ChordTone::Root).unwrap().flat());
+    println!("{:?}", gmin.role(G));
 }

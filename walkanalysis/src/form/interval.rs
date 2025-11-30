@@ -57,8 +57,8 @@ impl Interval {
     }
 
     pub fn find(bottom: Note, top: Note) -> Option<Interval> {
-        let mut top_index = top.index.rem_euclid(12);
-        let bottom_index = bottom.index.rem_euclid(12);
+        let mut top_index = top.index().rem_euclid(12);
+        let bottom_index = bottom.index().rem_euclid(12);
 
         if top_index < bottom_index {
             top_index += 12;

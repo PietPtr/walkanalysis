@@ -45,8 +45,9 @@ impl Display for ExerciseKind {
     }
 }
 
-#[derive(Debug, Enum, PartialEq, Clone, Copy, Eq)]
+#[derive(Default, Debug, Enum, PartialEq, Clone, Copy, Eq)]
 pub enum FormKind {
+    #[default]
     Test,
     AutumnLeaves,
     AllTheThingsYouAre,
@@ -99,9 +100,7 @@ impl WalkAnalysis {
     fn clear(&mut self) {
         self.data.clear();
         let mut state = self.state.write().unwrap();
-        state.analysis = None;
-        state.beat_pos = None;
-        state.correction = None;
+        state.clear();
     }
 }
 
@@ -151,11 +150,12 @@ impl Default for WalkAnalysis {
             },
             form_cache: None,
             state: Arc::new(RwLock::new(WalkanalysisSharedState {
-                selected_form: FormKind::Test,
+                selected_form: FormKind::default(),
                 selected_exercise: ExerciseKind::ArpeggiosUp,
                 correction: None,
                 beat_pos: None,
                 analysis: None,
+                form: FormKind::default().form(),
             })),
         }
     }
@@ -344,6 +344,8 @@ impl Plugin for WalkAnalysis {
                     .correct(&analysis);
 
                 println!("{}", correction);
+                // Analysis and correction of this run are ready, throw away old data.
+                self.data.clear();
 
                 {
                     let mut state = self.state.write().unwrap();

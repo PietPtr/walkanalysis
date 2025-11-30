@@ -11,7 +11,9 @@ use crate::{
 pub struct ArpeggiosUp {}
 
 impl Exercise for ArpeggiosUp {
-    // const EXPLANATION: &str = "On every first beat, play the root of the chord. On every second beat the third, then the fifth, then the seventh. If the chord defines no seventh, play the root again.";
+    fn explain(&self) -> String {
+        "On every first beat, play the root of the chord. On every second beat the third, then the fifth, then the seventh. If the chord defines no seventh, play the root again.".into()
+    }
 
     fn correct(&mut self, analysis: &Analysis) -> Correction {
         let mut mistakes = HashMap::new();
@@ -36,7 +38,7 @@ impl Exercise for ArpeggiosUp {
                 FormPiece::ChordBar(chord) => {
                     let NoteAnalysis::Note {
                         note,
-                        degree_in_key: _,
+                        degree_in_key: _degree_in_key,
                         role_in_chord,
                     } = *note_analysis
                     else {
@@ -68,28 +70,26 @@ impl Exercise for ArpeggiosUp {
                     };
 
                     if role_in_chord != correct_role_in_chord {
-                        mistakes.insert(
+                        let mistake = Mistake {
                             beat,
-                            Mistake {
-                                beat,
-                                mistake: MistakeKind::WrongNote {
-                                    played: note,
-                                    expected: chord.note(correct_role_in_chord).expect(&format!(
-                                        "Expect {}/{} to have a {:?}",
-                                        chord.sharp(),
-                                        chord.flat(),
-                                        correct_role_in_chord
-                                    )),
-                                },
+                            mistake: MistakeKind::WrongNote {
+                                played: note,
+                                expected: chord.note(correct_role_in_chord).expect(&format!(
+                                    "Expect {}/{} to have a {:?}",
+                                    chord.sharp(),
+                                    chord.flat(),
+                                    correct_role_in_chord
+                                )),
                             },
-                        );
+                        };
+                        mistakes.insert(beat, mistake);
                     }
                 }
                 FormPiece::HalfBar(chord1, chord2) => {
                     // TODO: lots of duplicated code with the above
                     let NoteAnalysis::Note {
                         note,
-                        degree_in_key: _,
+                        degree_in_key: _degree_in_key,
                         role_in_chord,
                     } = *note_analysis
                     else {
@@ -121,22 +121,20 @@ impl Exercise for ArpeggiosUp {
                     };
 
                     if role_in_chord != correct_role_in_chord {
-                        mistakes.insert(
+                        let mistake = Mistake {
                             beat,
-                            Mistake {
-                                beat,
-                                mistake: MistakeKind::WrongNote {
-                                    played: note,
-                                    expected: {
-                                        match beat_in_bar {
-                                            0 | 1 => chord1.note(correct_role_in_chord).unwrap(),
-                                            2 | 3 => chord2.note(correct_role_in_chord).unwrap(),
-                                            _ => unreachable!(),
-                                        }
-                                    },
+                            mistake: MistakeKind::WrongNote {
+                                played: note,
+                                expected: {
+                                    match beat_in_bar {
+                                        0 | 1 => chord1.note(correct_role_in_chord).unwrap(),
+                                        2 | 3 => chord2.note(correct_role_in_chord).unwrap(),
+                                        _ => unreachable!(),
+                                    }
                                 },
                             },
-                        );
+                        };
+                        mistakes.insert(beat, mistake);
                     }
                 }
                 FormPiece::LineBreak => (),
