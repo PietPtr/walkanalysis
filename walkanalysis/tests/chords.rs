@@ -10,11 +10,11 @@ fn test_chords() {
 
 #[test]
 fn test_spelling() {
-    println!("{}", A.maj7().spell());
-    println!("{}", A.dominant7().spell());
-    println!("{}", C_SHARP.maj().spell());
-    println!("{}", B_FLAT.maj7().spell());
-    println!("{}", B_FLAT.dim7().spell());
+    println!("{}", A.maj7().auto_spell());
+    println!("{}", A.dominant7().auto_spell());
+    println!("{}", C_SHARP.maj().auto_spell());
+    println!("{}", B_FLAT.maj7().auto_spell());
+    println!("{}", B_FLAT.dim7().auto_spell());
 }
 
 #[test]

@@ -2,7 +2,6 @@ pub mod colors;
 mod editor;
 pub mod fonts;
 pub mod styles;
-pub mod svgs;
 
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
@@ -14,7 +13,7 @@ use walkanalysis::{
     exercise::{analysis::Analysis, arpeggios_up::ArpeggiosUp, Exercise},
     form::{
         form::Form,
-        songs::{autumn_leaves::autumn_leaves, test::test},
+        songs::{autumn_leaves::autumn_leaves, but_beautiful::but_beautiful, test::test},
     },
     transcribe::transcribe::{AudioSettings, Transcription, DEFAULT_SETTINGS},
 };
@@ -51,6 +50,7 @@ pub enum FormKind {
     Test,
     AutumnLeaves,
     AllTheThingsYouAre,
+    ButBeautiful,
 }
 
 impl Display for FormKind {
@@ -59,6 +59,7 @@ impl Display for FormKind {
             FormKind::Test => write!(f, "Test"),
             FormKind::AutumnLeaves => write!(f, "Autumn Leaves"),
             FormKind::AllTheThingsYouAre => write!(f, "All The Things You Are"),
+            FormKind::ButBeautiful => write!(f, "But Beautiful"),
         }
     }
 }
@@ -69,13 +70,15 @@ impl FormKind {
             FormKind::AutumnLeaves => autumn_leaves(),
             FormKind::Test => test(),
             FormKind::AllTheThingsYouAre => todo!(),
+            FormKind::ButBeautiful => but_beautiful(),
         }
     }
 
     const ALL: [FormKind; 3] = [
         FormKind::Test,
-        FormKind::AllTheThingsYouAre,
+        // FormKind::AllTheThingsYouAre,
         FormKind::AutumnLeaves,
+        FormKind::ButBeautiful,
     ];
 }
 

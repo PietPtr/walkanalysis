@@ -88,3 +88,9 @@ fn test_keys() {
         "B♭ C D♭ E♭ F G♭ A♭ "
     );
 }
+
+#[test]
+fn test_spelling() {
+    println!("{}", Key::new(G, Quality::Minor).flat().spell_preference());
+    println!("{}", Key::new(G, Quality::Major).sharp().spell_preference());
+}

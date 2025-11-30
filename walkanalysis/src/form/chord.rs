@@ -5,6 +5,8 @@ use crate::form::{
     note::{Note, WrittenNote},
 };
 
+use super::note::Spelling;
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Chord {
     pub notes: Vec<Note>,
@@ -20,10 +22,11 @@ impl Chord {
         self.notes.len() > 3
     }
 
-    pub fn minor(root: Note) -> Self {
-        let third = root.add_interval(Interval::MinorThird);
-        let fifth = root.add_interval(Interval::PerfectFifth);
-        Chord::new(vec![root, third, fifth])
+    pub fn spell(&self, spelling: Spelling) -> WrittenChord {
+        match spelling {
+            Spelling::Sharp => self.sharp(),
+            Spelling::Flat => self.flat(),
+        }
     }
 
     pub fn flat(&self) -> WrittenChord {
@@ -38,7 +41,13 @@ impl Chord {
         }
     }
 
-    pub fn spell(&self) -> WrittenChord {
+    pub fn minor(root: Note) -> Self {
+        let third = root.add_interval(Interval::MinorThird);
+        let fifth = root.add_interval(Interval::PerfectFifth);
+        Chord::new(vec![root, third, fifth])
+    }
+
+    pub fn auto_spell(&self) -> WrittenChord {
         let sharp = self.sharp();
         let flat = self.flat();
 

@@ -14,6 +14,11 @@ pub struct WrittenNote {
     pub name: NoteName,
     pub accidental: Accidental,
 }
+impl WrittenNote {
+    pub(crate) fn unwrite(&self) -> Note {
+        Note::new(self.name, self.accidental)
+    }
+}
 
 impl Display for WrittenNote {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -30,6 +35,13 @@ impl From<i32> for Note {
 }
 
 impl Note {
+    pub fn spell(&self, spelling: Spelling) -> WrittenNote {
+        match spelling {
+            Spelling::Sharp => self.sharp(),
+            Spelling::Flat => self.flat(),
+        }
+    }
+
     pub fn sharp(&self) -> WrittenNote {
         let (name, accidental) = match self.index.rem_euclid(12) {
             0 => (NoteName::A, Accidental::Natural),
@@ -202,6 +214,22 @@ pub enum Accidental {
     Natural,
     Sharp,
     Flat,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum Spelling {
+    Sharp,
+    Flat,
+}
+
+impl Display for Spelling {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Spelling::Sharp => "♯",
+            Spelling::Flat => "♭",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 impl Accidental {

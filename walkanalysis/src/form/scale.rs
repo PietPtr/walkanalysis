@@ -2,12 +2,21 @@ use std::fmt::Display;
 
 use crate::form::note::{Note, WrittenNote};
 
+use super::note::Spelling;
+
 #[derive(Debug, Clone)]
 pub struct Scale {
     pub notes: Vec<Note>,
 }
 
 impl Scale {
+    pub fn spell(&self, spelling: Spelling) -> WrittenScale {
+        match spelling {
+            Spelling::Sharp => self.sharp(),
+            Spelling::Flat => self.flat(),
+        }
+    }
+
     pub fn sharp(&self) -> WrittenScale {
         WrittenScale {
             notes: self.notes.iter().map(|n| n.sharp()).collect(),

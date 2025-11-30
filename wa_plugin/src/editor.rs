@@ -10,7 +10,11 @@ use nih_plug::prelude::{Editor, GuiContext};
 use nih_plug_iced::{alignment::Horizontal, *};
 use walkanalysis::{
     exercise::analysis::{Analysis, Correction, Mistake, MistakeKind, NoteAnalysis},
-    form::{form::FormPiece, key, note::Note},
+    form::{
+        form::FormPiece,
+        key,
+        note::{Note, Spelling},
+    },
 };
 
 use crate::{
@@ -56,7 +60,7 @@ impl WalkanalysisSharedState {
 pub struct WalkanalysisEditor {
     state: Arc<RwLock<WalkanalysisSharedState>>,
     show_correction_instead_of_analysis: bool,
-    show_chord_tone_instead_of_degree_in_analysis: bool,
+    show_chord_tone_instead_of_note_in_analysis: bool,
     show_expected_instead_of_found_in_correction: bool,
 
     context: Arc<dyn GuiContext>,
@@ -87,11 +91,12 @@ impl<'a> WrittenBar<'a> {
         note: Option<Note>,
         mistake: Option<Mistake>,
         show_expected_instead_of_found_in_correction: bool,
+        spelling: Spelling,
     ) -> Element<'b, Message> {
         let Some(mistake) = mistake else {
             return Container::new(
                 Text::new(
-                    note.map(|n| ascii(format!("{}", n.flat())))
+                    note.map(|n| ascii(format!("{}", n.spell(spelling))))
                         .unwrap_or("?".into()),
                 )
                 .color(Color::WHITE),
@@ -119,10 +124,10 @@ impl<'a> WrittenBar<'a> {
         };
 
         let note_text = note_to_display
-            .map(|n| ascii(format!("{}", n.flat())))
+            .map(|n| ascii(format!("{}", n.spell(spelling))))
             .unwrap_or("?".into());
 
-        // TODO: display what the mistake was exactly somehow
+        // TODO: display what the mistake was exactly somehow (color, probably?)
         Container::new(Text::new(note_text).color(Color::WHITE))
             .style(MyContainerStyle {
                 background: Some(Background::Color(colors::RED)),
@@ -138,6 +143,7 @@ impl<'a> WrittenBar<'a> {
     fn view_note_analysis<'b>(
         analysis: &NoteAnalysis,
         show_chord_tone_instead_of_note_in_analysis: bool,
+        spelling: Spelling,
     ) -> Element<'b, Message> {
         match analysis {
             NoteAnalysis::Silence => Row::new().into(),
@@ -159,7 +165,7 @@ impl<'a> WrittenBar<'a> {
                     walkanalysis::form::chord::ChordTone::NoChordTone => "-",
                 };
 
-                let background_color = degree_in_key.map(|degree| match degree {
+                let background_color = match degree_in_key {
                     key::Degree::First => colors::GREEN,
                     key::Degree::Second => colors::YELLOW,
                     key::Degree::Third => colors::ORANGE,
@@ -168,17 +174,17 @@ impl<'a> WrittenBar<'a> {
                     key::Degree::Sixth => colors::BLUE,
                     key::Degree::Seventh => colors::LIGHT_BLUE,
                     key::Degree::Chromatic => colors::GREY,
-                });
+                };
 
                 let beat_text = if show_chord_tone_instead_of_note_in_analysis {
                     format!("{}", chord_tone_str)
                 } else {
-                    ascii(format!("{}", note.flat()))
+                    ascii(format!("{}", note.spell(spelling)))
                 };
 
                 Container::new(Text::new(beat_text).color(Color::WHITE))
                     .style(MyContainerStyle {
-                        background: background_color.map(|c| Background::Color(c)),
+                        background: Some(Background::Color(background_color)),
                         border_radius: 4.,
                         ..Default::default()
                     })
@@ -193,6 +199,7 @@ impl<'a> WrittenBar<'a> {
 
     pub fn view<'b>(
         &self,
+        spelling: Spelling,
         show_correction_instead_of_analysis: bool,
         show_chord_tone_instead_of_degree_in_analysis: bool,
         show_expected_instead_of_found_in_correction: bool,
@@ -247,11 +254,13 @@ impl<'a> WrittenBar<'a> {
                         beat.note(),
                         *mistake,
                         show_expected_instead_of_found_in_correction,
+                        spelling,
                     ));
                 } else {
                     beats = beats.push(Self::view_note_analysis(
                         beat,
                         show_chord_tone_instead_of_degree_in_analysis,
+                        spelling,
                     ));
                 }
             }
@@ -262,7 +271,7 @@ impl<'a> WrittenBar<'a> {
                         if self.current_beat == Some(i) {
                             Color::WHITE
                         } else {
-                            Color::BLACK
+                            colors::GREY
                         },
                     ))
                     .style(MyContainerStyle {
@@ -302,7 +311,7 @@ impl WalkanalysisEditor {
                 .padding(Padding {
                     top: 0,
                     right: 16,
-                    bottom: 8,
+                    bottom: 16,
                     left: 16,
                 })
                 .spacing(1)
@@ -310,7 +319,7 @@ impl WalkanalysisEditor {
 
         let mut row = new_row();
         let mut form_beat_counter: u32 = 0;
-        for form_piece in form.music {
+        for form_piece in form.music() {
             let new_form_piece = form_piece.clone();
             match form_piece {
                 FormPiece::Key(_) => (), // TODO: display key
@@ -349,8 +358,9 @@ impl WalkanalysisEditor {
                         current_beat,
                     };
                     row = row.push(bar.view(
+                        current_state.selected_form.form().key().spell_preference(),
                         self.show_correction_instead_of_analysis,
-                        self.show_chord_tone_instead_of_degree_in_analysis,
+                        self.show_chord_tone_instead_of_note_in_analysis,
                         self.show_expected_instead_of_found_in_correction,
                     ))
                 }
@@ -383,7 +393,7 @@ impl IcedEditor for WalkanalysisEditor {
             form_selector_state: Default::default(),
             exercise_selector_state: Default::default(),
             show_correction_instead_of_analysis: false,
-            show_chord_tone_instead_of_degree_in_analysis: false,
+            show_chord_tone_instead_of_note_in_analysis: true,
             show_expected_instead_of_found_in_correction: false,
         };
 
@@ -410,7 +420,7 @@ impl IcedEditor for WalkanalysisEditor {
                 self.show_expected_instead_of_found_in_correction = choice
             }
             Message::ChordToneOrDegree(choice) => {
-                self.show_chord_tone_instead_of_degree_in_analysis = choice
+                self.show_chord_tone_instead_of_note_in_analysis = choice
             }
         }
 
@@ -421,12 +431,16 @@ impl IcedEditor for WalkanalysisEditor {
         let current_state = self.state.read().unwrap();
 
         // Title
-        let title = Text::new(format!("{}", current_state.selected_form))
-            .font(fonts::EB_GARAMOND_MEDIUM)
-            .size(40)
-            .height(Length::Units(45))
-            .horizontal_alignment(alignment::Horizontal::Center)
-            .width(Length::Fill);
+        let title = Text::new(format!(
+            "{} ({})",
+            current_state.selected_form,
+            current_state.selected_form.form().key()
+        ))
+        .font(fonts::EB_GARAMOND_MEDIUM)
+        .size(40)
+        .height(Length::Units(45))
+        .horizontal_alignment(alignment::Horizontal::Center)
+        .width(Length::Fill);
 
         // Most complex component: the form and all the beats
         let form_and_correction = self.view_form_and_correction();
@@ -537,7 +551,7 @@ impl IcedEditor for WalkanalysisEditor {
             )
             .push(
                 Toggler::new(
-                    self.show_chord_tone_instead_of_degree_in_analysis,
+                    self.show_chord_tone_instead_of_note_in_analysis,
                     None,
                     Message::ChordToneOrDegree,
                 )

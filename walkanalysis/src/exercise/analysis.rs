@@ -22,7 +22,7 @@ pub enum NoteAnalysis {
     Silence,
     Note {
         note: Note,
-        degree_in_key: Option<key::Degree>,
+        degree_in_key: key::Degree,
         role_in_chord: chord::ChordTone,
     },
     NoteDuringSilence {
@@ -50,13 +50,13 @@ impl Analysis {
         let mut beat_analysis = HashMap::new();
         let mut form_analysis = vec![];
 
-        let mut key = None;
+        let mut key = form.key().unwrite();
         let mut note_iter = transcription.notes.iter();
 
         let mut beat_number = 0;
-        for form_piece in form.music.iter() {
+        for form_piece in form.music().iter() {
             if let FormPiece::Key(new_key) = form_piece {
-                key = Some(new_key)
+                key = *new_key
             }
 
             let notes_in_this_form_piece: Vec<_> = note_iter
@@ -66,7 +66,7 @@ impl Analysis {
 
             let analyze_with_chord = |note, chord: &Chord| NoteAnalysis::Note {
                 note,
-                degree_in_key: key.map(|k| k.role(note)),
+                degree_in_key: key.role(note),
                 role_in_chord: chord.role(note),
             };
 

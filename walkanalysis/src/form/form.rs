@@ -4,11 +4,31 @@ use serde::{Deserialize, Serialize};
 
 use crate::form::{chord::Chord, key::Key};
 
+use super::key::WrittenKey;
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Form {
-    pub tempo: u32,
-    pub music: Vec<FormPiece>,
+    tempo: u32,
+    key: WrittenKey,
+    music: Vec<FormPiece>,
     // TODO: excuses: bars that are non-standard or may be interpreted more freely and are not checked?
+}
+
+impl Form {
+    pub fn new(tempo: u32, key: WrittenKey, mut music: Vec<FormPiece>) -> Self {
+        if music.get(0).cloned() != Some(FormPiece::CountOff) {
+            music.insert(0, FormPiece::CountOff);
+        }
+        Self { tempo, key, music }
+    }
+
+    pub fn key(&self) -> WrittenKey {
+        self.key
+    }
+
+    pub fn music(&self) -> &Vec<FormPiece> {
+        &self.music
+    }
 }
 
 // Defines a bar of 4/4 form

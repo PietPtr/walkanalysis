@@ -4,10 +4,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::form::{interval::Interval, note::Note, scale::Scale};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+use super::note::{Accidental, NoteName, Spelling, WrittenNote};
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum Quality {
     Major,
     Minor,
+}
+
+impl Quality {
+    fn short_name(&self) -> &str {
+        match self {
+            Quality::Major => "",
+            Quality::Minor => "m",
+        }
+    }
 }
 
 impl Display for Quality {
@@ -19,7 +30,7 @@ impl Display for Quality {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Key {
     root: Note,
     quality: Quality,
@@ -76,6 +87,64 @@ impl Key {
             .unwrap_or(Degree::Chromatic);
 
         result
+    }
+
+    // TODO: can probably turn this stuff into a trait
+    pub fn spell(&self, spelling: Spelling) -> WrittenKey {
+        match spelling {
+            Spelling::Sharp => self.sharp(),
+            Spelling::Flat => self.flat(),
+        }
+    }
+
+    pub fn flat(&self) -> WrittenKey {
+        WrittenKey {
+            root: self.root.flat(),
+            quality: self.quality,
+        }
+    }
+
+    pub fn sharp(&self) -> WrittenKey {
+        WrittenKey {
+            root: self.root.sharp(),
+            quality: self.quality,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub struct WrittenKey {
+    root: WrittenNote,
+    quality: Quality,
+}
+
+impl Display for WrittenKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.root, self.quality.short_name())
+    }
+}
+
+impl WrittenKey {
+    pub fn spell_preference(&self) -> Spelling {
+        match self.quality {}
+        match self.root.accidental {
+            Accidental::Natural => (),
+            Accidental::Sharp => return Spelling::Sharp,
+            Accidental::Flat => return Spelling::Flat,
+        }
+        match self.root.name {
+            NoteName::A | NoteName::B | NoteName::C | NoteName::D | NoteName::E | NoteName::G => {
+                Spelling::Sharp
+            }
+            NoteName::F => Spelling::Flat,
+        }
+    }
+
+    pub(crate) fn unwrite(&self) -> Key {
+        Key {
+            root: self.root.unwrite(),
+            quality: self.quality,
+        }
     }
 }
 

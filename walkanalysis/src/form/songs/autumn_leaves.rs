@@ -5,11 +5,10 @@ use crate::form::{
 };
 
 pub fn autumn_leaves() -> Form {
-    Form {
-        tempo: 110,
-        music: vec![
-            FormPiece::Key(Key::new(G, Quality::Minor)),
-            FormPiece::CountOff,
+    Form::new(
+        110,
+        Key::new(G, Quality::Minor).flat(),
+        vec![
             // A section
             bar(C.min7()),
             bar(F.dominant7()),
@@ -55,5 +54,5 @@ pub fn autumn_leaves() -> Form {
             bar(G.min7()),
             FormPiece::LineBreak,
         ],
-    }
+    )
 }

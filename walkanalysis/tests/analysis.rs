@@ -1,8 +1,9 @@
 use walkanalysis::{
-    exercise::analysis::Analysis,
+    exercise::analysis::{Analysis, NoteAnalysis},
     form::{
-        form::{bar, Form, FormPiece},
-        key::{Key, Quality},
+        chord::ChordTone,
+        form::{bar, Form},
+        key::{self, Key, Quality},
         note::*,
     },
     transcribe::transcribe::{PlayedNote, Transcription},
@@ -10,10 +11,7 @@ use walkanalysis::{
 
 #[test]
 fn test_analysis() {
-    let form = Form {
-        tempo: 110,
-        music: vec![FormPiece::Key(Key::new(G, Quality::Minor)), bar(C.min7())],
-    };
+    let form = Form::new(110, Key::new(G, Quality::Minor).flat(), vec![bar(C.min7())]);
 
     let transcription = Transcription {
         notes: vec![
@@ -26,5 +24,40 @@ fn test_analysis() {
 
     let analysis = Analysis::analyze(transcription, &form);
 
-    dbg!(analysis);
+    let assert_role = |expected_degree: key::Degree, expected_role: ChordTone, na: NoteAnalysis| {
+        let NoteAnalysis::Note {
+            note: _,
+            degree_in_key,
+            role_in_chord,
+        } = na
+        else {
+            panic!("Not noteanalysis")
+        };
+
+        assert_eq!(role_in_chord, expected_role);
+        assert_eq!(expected_degree, degree_in_key);
+    };
+
+    dbg!(&analysis);
+
+    assert_role(
+        key::Degree::Fourth,
+        ChordTone::Root,
+        analysis.beat_analysis.get(&0).unwrap().1,
+    );
+    assert_role(
+        key::Degree::Sixth,
+        ChordTone::Third,
+        analysis.beat_analysis.get(&1).unwrap().1,
+    );
+    assert_role(
+        key::Degree::First,
+        ChordTone::Fifth,
+        analysis.beat_analysis.get(&2).unwrap().1,
+    );
+    assert_role(
+        key::Degree::Chromatic,
+        ChordTone::NoChordTone,
+        analysis.beat_analysis.get(&3).unwrap().1,
+    );
 }
