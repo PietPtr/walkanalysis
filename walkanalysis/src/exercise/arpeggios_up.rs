@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     exercise::{
         analysis::{Analysis, Correction, Mistake, MistakeKind, NoteAnalysis},
@@ -12,7 +14,7 @@ impl Exercise for ArpeggiosUp {
     // const EXPLANATION: &str = "On every first beat, play the root of the chord. On every second beat the third, then the fifth, then the seventh. If the chord defines no seventh, play the root again.";
 
     fn correct(&mut self, analysis: &Analysis) -> Correction {
-        let mut mistakes = Vec::new();
+        let mut mistakes = HashMap::new();
 
         for (&beat, (form_piece, note_analysis)) in analysis.beat_analysis.iter() {
             // every first beat of a bar is the root, second is the third, third is the fifth, fourth is the seventh or root if no seventh
@@ -20,12 +22,15 @@ impl Exercise for ArpeggiosUp {
                 FormPiece::Key(_) => (),
                 FormPiece::CountOff => {
                     if *note_analysis != NoteAnalysis::Silence {
-                        mistakes.push(Mistake {
+                        mistakes.insert(
                             beat,
-                            mistake: MistakeKind::ExpectedSilence {
-                                found: *note_analysis,
+                            Mistake {
+                                beat,
+                                mistake: MistakeKind::ExpectedSilence {
+                                    found: *note_analysis,
+                                },
                             },
-                        });
+                        );
                     }
                 }
                 FormPiece::ChordBar(chord) => {
@@ -35,12 +40,15 @@ impl Exercise for ArpeggiosUp {
                         role_in_chord,
                     } = *note_analysis
                     else {
-                        mistakes.push(Mistake {
+                        mistakes.insert(
                             beat,
-                            mistake: MistakeKind::ExpectedNote {
-                                found: *note_analysis,
+                            Mistake {
+                                beat,
+                                mistake: MistakeKind::ExpectedNote {
+                                    found: *note_analysis,
+                                },
                             },
-                        });
+                        );
                         continue;
                     };
 
@@ -60,18 +68,21 @@ impl Exercise for ArpeggiosUp {
                     };
 
                     if role_in_chord != correct_role_in_chord {
-                        mistakes.push(Mistake {
+                        mistakes.insert(
                             beat,
-                            mistake: MistakeKind::WrongNote {
-                                played: note,
-                                expected: chord.note(correct_role_in_chord).expect(&format!(
-                                    "Expect {}/{} to have a {:?}",
-                                    chord.sharp(),
-                                    chord.flat(),
-                                    correct_role_in_chord
-                                )),
+                            Mistake {
+                                beat,
+                                mistake: MistakeKind::WrongNote {
+                                    played: note,
+                                    expected: chord.note(correct_role_in_chord).expect(&format!(
+                                        "Expect {}/{} to have a {:?}",
+                                        chord.sharp(),
+                                        chord.flat(),
+                                        correct_role_in_chord
+                                    )),
+                                },
                             },
-                        });
+                        );
                     }
                 }
                 FormPiece::HalfBar(chord1, chord2) => {
@@ -82,12 +93,15 @@ impl Exercise for ArpeggiosUp {
                         role_in_chord,
                     } = *note_analysis
                     else {
-                        mistakes.push(Mistake {
+                        mistakes.insert(
                             beat,
-                            mistake: MistakeKind::ExpectedNote {
-                                found: *note_analysis,
+                            Mistake {
+                                beat,
+                                mistake: MistakeKind::ExpectedNote {
+                                    found: *note_analysis,
+                                },
                             },
-                        });
+                        );
                         continue;
                     };
 
@@ -107,19 +121,22 @@ impl Exercise for ArpeggiosUp {
                     };
 
                     if role_in_chord != correct_role_in_chord {
-                        mistakes.push(Mistake {
+                        mistakes.insert(
                             beat,
-                            mistake: MistakeKind::WrongNote {
-                                played: note,
-                                expected: {
-                                    match beat_in_bar {
-                                        0 | 1 => chord1.note(correct_role_in_chord).unwrap(),
-                                        2 | 3 => chord2.note(correct_role_in_chord).unwrap(),
-                                        _ => unreachable!(),
-                                    }
+                            Mistake {
+                                beat,
+                                mistake: MistakeKind::WrongNote {
+                                    played: note,
+                                    expected: {
+                                        match beat_in_bar {
+                                            0 | 1 => chord1.note(correct_role_in_chord).unwrap(),
+                                            2 | 3 => chord2.note(correct_role_in_chord).unwrap(),
+                                            _ => unreachable!(),
+                                        }
+                                    },
                                 },
                             },
-                        });
+                        );
                     }
                 }
                 FormPiece::LineBreak => (),

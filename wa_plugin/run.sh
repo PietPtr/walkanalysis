@@ -1,4 +1,6 @@
-killall ArdourGUI
+set -xe
+
+killall ArdourGUI || true
 cargo xtask bundle wa_plugin --release
 cp ../target/bundled/wa_plugin.vst3/  ~/.vst3 -r 
 ardour ~/Music/Ardour/PluginTest/PluginTest.ardour &

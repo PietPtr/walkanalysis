@@ -29,6 +29,19 @@ pub enum NoteAnalysis {
         note: Note,
     },
 }
+impl NoteAnalysis {
+    pub fn note(&self) -> Option<Note> {
+        match self {
+            NoteAnalysis::Silence => None,
+            NoteAnalysis::Note {
+                note,
+                degree_in_key: _,
+                role_in_chord: _,
+            } => Some(*note),
+            NoteAnalysis::NoteDuringSilence { note } => Some(*note),
+        }
+    }
+}
 
 impl Analysis {
     /// Analyzes the roles of the notes played according to the transcription
@@ -102,7 +115,8 @@ impl Analysis {
 pub struct Correction {
     pub amount_of_beats: usize,
     /// All beats where something incorrect was played
-    pub mistakes: Vec<Mistake>,
+    /// Maps beat to mistake (mistakes also save the beat, so there's some double administration that needs to be done correctly)
+    pub mistakes: HashMap<u32, Mistake>,
 }
 
 impl Correction {
@@ -113,7 +127,8 @@ impl Correction {
 
 impl Display for Correction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut sortable = self.mistakes.clone();
+        let mistakes = self.mistakes.clone();
+        let mut sortable = mistakes.values().collect::<Vec<_>>();
         sortable.sort_by(|m1, m2| m1.beat.cmp(&m2.beat));
 
         for mistake in sortable.iter() {

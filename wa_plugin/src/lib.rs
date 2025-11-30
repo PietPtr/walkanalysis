@@ -1,5 +1,8 @@
+pub mod colors;
 mod editor;
 pub mod fonts;
+pub mod styles;
+pub mod svgs;
 
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
@@ -87,6 +90,16 @@ pub struct WalkAnalysis {
     data: DataToAnalyze,
     form_cache: Option<FormCache>,
     state: Arc<RwLock<WalkanalysisSharedState>>,
+}
+
+impl WalkAnalysis {
+    fn clear(&mut self) {
+        self.data.clear();
+        let mut state = self.state.write().unwrap();
+        state.analysis = None;
+        state.beat_pos = None;
+        state.correction = None;
+    }
 }
 
 pub struct FormCache {
@@ -259,7 +272,7 @@ impl Plugin for WalkAnalysis {
                             "Tempo changed: was {}, is now {}, deleting data.",
                             data_tempo, transport_tempo
                         );
-                        self.data.clear();
+                        self.clear();
                         return ProcessStatus::Normal;
                     }
                 }
@@ -267,7 +280,7 @@ impl Plugin for WalkAnalysis {
             }
 
             let Some(tempo) = self.data.tempo else {
-                self.data.clear();
+                self.clear();
                 println!("No tempo known at this point, cannot analyze.");
                 return ProcessStatus::Normal;
             };
@@ -280,7 +293,7 @@ impl Plugin for WalkAnalysis {
                         "Time went backwards, {} => {}",
                         last_saved_beat_pos, current_beat_pos
                     );
-                    self.data.clear();
+                    self.clear();
                     return ProcessStatus::Normal;
                 }
             }
@@ -296,7 +309,7 @@ impl Plugin for WalkAnalysis {
 
             let Some(ref form_cache) = self.form_cache else {
                 println!("No form cache found even though state is acquiring. Deleting data.");
-                self.data.clear();
+                self.clear();
                 return ProcessStatus::Normal;
             };
 
@@ -304,13 +317,6 @@ impl Plugin for WalkAnalysis {
             let samples_per_beat = context.transport().sample_rate / beats_per_second as f32;
             let form_length_in_samples =
                 (form_cache.length as f32 * samples_per_beat).ceil() as usize;
-
-            println!(
-                "Processed {}/{} ({:.2}%)",
-                self.data.samples.len(),
-                form_length_in_samples,
-                100. * self.data.samples.len() as f32 / form_length_in_samples as f32,
-            );
 
             if self.data.samples.len() >= form_length_in_samples {
                 println!("Finished data acquisition for {:?}", form_cache.kind);
@@ -333,7 +339,8 @@ impl Plugin for WalkAnalysis {
                     .selected_exercise
                     .exercise()
                     .correct(&analysis);
-                println!("{:?}", correction);
+
+                println!("{}", correction);
 
                 {
                     let mut state = self.state.write().unwrap();

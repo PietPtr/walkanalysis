@@ -1,14 +1,23 @@
+// TODO: fix restart behaviors:
+// - when the song ends and the analysis is shown, allow selecting a new form / exercise
+// - when analysis + correction is available, add a toggle to switch between analysis or correction (with icons? [magnifier glass] <toggle> [pen and paper])
+// TODO: show correction: for every beat, show the note that was played, and highlight green or red for correct or wrong
+
 use std::sync::{Arc, RwLock};
 
 // use iced::PickList;
 use nih_plug::prelude::{Editor, GuiContext};
-use nih_plug_iced::*;
+use nih_plug_iced::{alignment::Horizontal, *};
 use walkanalysis::{
-    exercise::analysis::{self, Analysis, Correction, Mistake, NoteAnalysis},
-    form::{form::FormPiece, key},
+    exercise::analysis::{Analysis, Correction, Mistake, MistakeKind, NoteAnalysis},
+    form::{form::FormPiece, key, note::Note},
 };
 
-use crate::{fonts, ExerciseKind, FormKind};
+use crate::{
+    colors, fonts,
+    styles::{MyContainerStyle, MyPicklistStyle, MyTogglerStyle},
+    ExerciseKind, FormKind,
+};
 
 pub(crate) fn default_state() -> Arc<IcedState> {
     IcedState::from_size(500, 706)
@@ -34,8 +43,21 @@ pub struct WalkanalysisSharedState {
     pub beat_pos: Option<f64>,
 }
 
+impl WalkanalysisSharedState {
+    pub fn is_recording(&self) -> bool {
+        if self.beat_pos.is_some() {
+            self.analysis.is_none()
+        } else {
+            false
+        }
+    }
+}
+
 pub struct WalkanalysisEditor {
     state: Arc<RwLock<WalkanalysisSharedState>>,
+    show_correction_instead_of_analysis: bool,
+    show_chord_tone_instead_of_degree_in_analysis: bool,
+    show_expected_instead_of_found_in_correction: bool,
 
     context: Arc<dyn GuiContext>,
     form_selector_state: pick_list::State<FormKind>,
@@ -46,6 +68,9 @@ pub struct WalkanalysisEditor {
 pub enum Message {
     FormSelected(FormKind),
     ExerciseSelected(ExerciseKind),
+    AnalysisOrCorrection(bool),
+    ExpectedOrFound(bool),
+    ChordToneOrDegree(bool),
 }
 
 pub struct WrittenBar<'a> {
@@ -58,7 +83,62 @@ pub struct WrittenBar<'a> {
 }
 
 impl<'a> WrittenBar<'a> {
-    fn view_note_analysis<'b>(analysis: &NoteAnalysis) -> Element<'b, Message> {
+    fn view_mistake<'b>(
+        note: Option<Note>,
+        mistake: Option<Mistake>,
+        show_expected_instead_of_found_in_correction: bool,
+    ) -> Element<'b, Message> {
+        let Some(mistake) = mistake else {
+            return Container::new(
+                Text::new(
+                    note.map(|n| ascii(format!("{}", n.flat())))
+                        .unwrap_or("?".into()),
+                )
+                .color(Color::WHITE),
+            )
+            .style(MyContainerStyle {
+                background: Some(Background::Color(colors::GREEN)),
+                border_radius: 4.,
+                ..Default::default()
+            })
+            .width(Length::Fill)
+            .center_x()
+            .center_y()
+            .into();
+        };
+
+        let note_to_display = match mistake.mistake {
+            MistakeKind::WrongNote { played, expected } => {
+                if show_expected_instead_of_found_in_correction {
+                    Some(expected)
+                } else {
+                    Some(played)
+                }
+            }
+            _ => note,
+        };
+
+        let note_text = note_to_display
+            .map(|n| ascii(format!("{}", n.flat())))
+            .unwrap_or("?".into());
+
+        // TODO: display what the mistake was exactly somehow
+        Container::new(Text::new(note_text).color(Color::WHITE))
+            .style(MyContainerStyle {
+                background: Some(Background::Color(colors::RED)),
+                border_radius: 4.,
+                ..Default::default()
+            })
+            .width(Length::Fill)
+            .center_x()
+            .center_y()
+            .into()
+    }
+
+    fn view_note_analysis<'b>(
+        analysis: &NoteAnalysis,
+        show_chord_tone_instead_of_note_in_analysis: bool,
+    ) -> Element<'b, Message> {
         match analysis {
             NoteAnalysis::Silence => Row::new().into(),
             NoteAnalysis::Note {
@@ -76,94 +156,128 @@ impl<'a> WrittenBar<'a> {
                     walkanalysis::form::chord::ChordTone::Third => "3",
                     walkanalysis::form::chord::ChordTone::Fifth => "5",
                     walkanalysis::form::chord::ChordTone::Seventh => "7",
-                    walkanalysis::form::chord::ChordTone::NoChordTone => "x",
+                    walkanalysis::form::chord::ChordTone::NoChordTone => "-",
                 };
 
                 let background_color = degree_in_key.map(|degree| match degree {
-                    key::Degree::First => Color::from_rgb8(80, 170, 120),
-                    key::Degree::Second => Color::from_rgb8(70, 160, 180),
-                    key::Degree::Third => Color::from_rgb8(70, 130, 200),
-                    key::Degree::Fourth => Color::from_rgb8(110, 100, 200),
-                    key::Degree::Fifth => Color::from_rgb8(190, 90, 120),
-                    key::Degree::Sixth => Color::from_rgb8(210, 150, 80),
-                    key::Degree::Seventh => Color::from_rgb8(220, 200, 80),
-                    key::Degree::Chromatic => Color::from_rgb8(150, 150, 150),
+                    key::Degree::First => colors::GREEN,
+                    key::Degree::Second => colors::YELLOW,
+                    key::Degree::Third => colors::ORANGE,
+                    key::Degree::Fourth => colors::RED,
+                    key::Degree::Fifth => colors::PURPLE,
+                    key::Degree::Sixth => colors::BLUE,
+                    key::Degree::Seventh => colors::LIGHT_BLUE,
+                    key::Degree::Chromatic => colors::GREY,
                 });
 
-                Container::new(Text::new(format!("{}", chord_tone_str)))
+                let beat_text = if show_chord_tone_instead_of_note_in_analysis {
+                    format!("{}", chord_tone_str)
+                } else {
+                    ascii(format!("{}", note.flat()))
+                };
+
+                Container::new(Text::new(beat_text).color(Color::WHITE))
                     .style(MyContainerStyle {
                         background: background_color.map(|c| Background::Color(c)),
+                        border_radius: 4.,
                         ..Default::default()
                     })
                     .width(Length::Fill)
-                    .align_x(alignment::Horizontal::Center)
+                    .center_x()
+                    .center_y()
                     .into()
             }
-            NoteAnalysis::NoteDuringSilence { note } => Row::new().into(), // TODO: this
+            NoteAnalysis::NoteDuringSilence { note: _ } => Row::new().into(), // TODO: this
         }
     }
 
-    pub fn view<'b>(&self) -> Element<'b, Message> {
+    pub fn view<'b>(
+        &self,
+        show_correction_instead_of_analysis: bool,
+        show_chord_tone_instead_of_degree_in_analysis: bool,
+        show_expected_instead_of_found_in_correction: bool,
+    ) -> Element<'b, Message> {
+        const CHORD_SYMBOL_SIZE: u16 = 24;
         let chord_symbol: Element<'b, Message> = match &self.form_piece {
             FormPiece::Key(_) => unreachable!(),
             FormPiece::LineBreak => unreachable!(),
             FormPiece::CountOff => unreachable!(),
             FormPiece::ChordBar(chord) => Text::new(ascii(format!("{}", chord.flat_symbol())))
                 .font(fonts::EB_GARAMOND_MEDIUM)
-                .size(24)
+                .size(CHORD_SYMBOL_SIZE)
                 .into(), // TODO: determine sharp / flat from form
             FormPiece::HalfBar(chord1, chord2) => Row::new()
                 .push(
                     Text::new(ascii(format!("{}", chord1.flat_symbol())))
                         .font(fonts::EB_GARAMOND_MEDIUM)
+                        .size(CHORD_SYMBOL_SIZE)
                         .width(Length::Fill),
                 )
                 .push(
                     Text::new(ascii(format!("{}", chord2.flat_symbol())))
                         .font(fonts::EB_GARAMOND_MEDIUM)
+                        .size(CHORD_SYMBOL_SIZE)
                         .width(Length::Fill),
                 )
                 .into(),
         };
 
-        let mut beats = Row::new();
+        let mut beats = Row::new().spacing(1).padding(Padding {
+            top: 1,
+            right: 0,
+            bottom: 1,
+            left: 0,
+        });
 
         if let Some(analyzed_beats) = self.analyzed_beats.as_ref() {
-            for (i, beat) in analyzed_beats.iter().enumerate() {
+            for (beat, mistake) in analyzed_beats.iter().zip(self.correction_beats.iter()) {
                 let Some(beat) = beat else {
-                    beats = beats
-                        .push(Text::new("-").font(fonts::ROBOTO_MONO_REGULAR))
-                        .width(Length::Fill);
+                    beats = beats.push(
+                        Container::new(Text::new("?").font(fonts::ROBOTO_MONO_REGULAR))
+                            .width(Length::Fill)
+                            .center_x()
+                            .center_y(),
+                    );
+
                     continue;
                 };
 
-                beats = beats.push(Self::view_note_analysis(beat));
-                if let NoteAnalysis::Note {
-                    note,
-                    degree_in_key,
-                    role_in_chord,
-                } = beat
-                {
-                    println!(
-                        "[{}] {} {:?} {:?}",
-                        i,
-                        note.flat(),
-                        degree_in_key,
-                        role_in_chord
-                    );
+                if show_correction_instead_of_analysis {
+                    beats = beats.push(Self::view_mistake(
+                        beat.note(),
+                        *mistake,
+                        show_expected_instead_of_found_in_correction,
+                    ));
+                } else {
+                    beats = beats.push(Self::view_note_analysis(
+                        beat,
+                        show_chord_tone_instead_of_degree_in_analysis,
+                    ));
                 }
             }
         } else {
             for i in 0..4 {
-                beats = beats
-                    .push(Text::new(format!("{}", i + 1)).width(Length::Fill).font(
+                beats = beats.push(
+                    Container::new(Text::new(format!("{}", i + 1)).color(
                         if self.current_beat == Some(i) {
-                            fonts::ROBOTO_MONO_MEDIUM
+                            Color::WHITE
                         } else {
-                            fonts::ROBOTO_MONO_REGULAR
+                            Color::BLACK
                         },
                     ))
-                    .align_items(Alignment::Center);
+                    .style(MyContainerStyle {
+                        background: if self.current_beat == Some(i) {
+                            Some(Background::Color(colors::RED))
+                        } else {
+                            None
+                        },
+                        border_radius: 4.,
+                        ..Default::default()
+                    })
+                    .width(Length::Fill)
+                    .center_x()
+                    .center_y(),
+                )
             }
         }
 
@@ -182,7 +296,17 @@ impl WalkanalysisEditor {
         let current_state = self.state.read().unwrap();
         let form = current_state.selected_form.form();
         let mut column = Column::new();
-        let new_row = || Row::new().width(Length::Fill).padding(16);
+        let new_row = || {
+            Row::new()
+                .width(Length::Fill)
+                .padding(Padding {
+                    top: 0,
+                    right: 16,
+                    bottom: 8,
+                    left: 16,
+                })
+                .spacing(1)
+        };
 
         let mut row = new_row();
         let mut form_beat_counter: u32 = 0;
@@ -214,13 +338,21 @@ impl WalkanalysisEditor {
                         beats.map(|beat| analysis.beat_analysis.get(&beat).cloned().map(|n| n.1))
                     });
 
+                    let correction_beats = current_state.correction.as_ref().map(|correction| {
+                        beats.map(|beat| correction.mistakes.get(&beat).copied())
+                    });
+
                     let bar = WrittenBar {
                         form_piece: new_form_piece,
                         analyzed_beats: analyzed_beats.as_ref(),
-                        correction_beats: &[const { None }; 4],
+                        correction_beats: correction_beats.as_ref().unwrap_or(&[const { None }; 4]),
                         current_beat,
                     };
-                    row = row.push(bar.view())
+                    row = row.push(bar.view(
+                        self.show_correction_instead_of_analysis,
+                        self.show_chord_tone_instead_of_degree_in_analysis,
+                        self.show_expected_instead_of_found_in_correction,
+                    ))
                 }
                 FormPiece::LineBreak => {
                     column = column.push(row);
@@ -230,11 +362,6 @@ impl WalkanalysisEditor {
             form_beat_counter += form_piece.length_in_beats();
         }
         column = column.push(row);
-
-        // each chord symbol should be accompanied in a column with 4 thingos that:
-        // once available, show the note analysis (role in chord if any, degree as a background color, chromatic is gray-ish inbetween color)
-        // otherwise should still take the same amount of space
-        // if the current beat is at that beat then it must be shown somehow
 
         column.into()
     }
@@ -255,6 +382,9 @@ impl IcedEditor for WalkanalysisEditor {
             context,
             form_selector_state: Default::default(),
             exercise_selector_state: Default::default(),
+            show_correction_instead_of_analysis: false,
+            show_chord_tone_instead_of_degree_in_analysis: false,
+            show_expected_instead_of_found_in_correction: false,
         };
 
         (editor, Command::none())
@@ -273,6 +403,15 @@ impl IcedEditor for WalkanalysisEditor {
         match message {
             Message::FormSelected(form_kind) => state.selected_form = form_kind,
             Message::ExerciseSelected(exercise) => state.selected_exercise = exercise,
+            Message::AnalysisOrCorrection(choice) => {
+                self.show_correction_instead_of_analysis = choice;
+            }
+            Message::ExpectedOrFound(choice) => {
+                self.show_expected_instead_of_found_in_correction = choice
+            }
+            Message::ChordToneOrDegree(choice) => {
+                self.show_chord_tone_instead_of_degree_in_analysis = choice
+            }
         }
 
         Command::none()
@@ -281,58 +420,165 @@ impl IcedEditor for WalkanalysisEditor {
     fn view(&mut self) -> Element<'_, Self::Message> {
         let current_state = self.state.read().unwrap();
 
+        // Title
+        let title = Text::new(format!("{}", current_state.selected_form))
+            .font(fonts::EB_GARAMOND_MEDIUM)
+            .size(40)
+            .height(Length::Units(45))
+            .horizontal_alignment(alignment::Horizontal::Center)
+            .width(Length::Fill);
+
+        // Most complex component: the form and all the beats
         let form_and_correction = self.view_form_and_correction();
 
+        // Dropdown for selecting the form
         let form_picker = PickList::new(
             &mut self.form_selector_state,
             &FormKind::ALL[..],
             Some(current_state.selected_form),
             Message::FormSelected,
-        );
+        )
+        .font(fonts::EB_GARAMOND_MEDIUM)
+        .style(MyPicklistStyle {});
 
+        // Dropdown to select the exercise
         let exercise_picker = PickList::new(
             &mut self.exercise_selector_state,
             &ExerciseKind::ALL[..],
             Some(current_state.selected_exercise),
             Message::ExerciseSelected,
-        );
+        )
+        .font(fonts::EB_GARAMOND_MEDIUM)
+        .style(MyPicklistStyle {});
 
-        let count_off_text = Text::new(format!(
-            "{}",
-            current_state.beat_pos.map(|b| countoff(b)).unwrap_or("")
-        ));
-
-        let picker_row = Row::new()
+        // Row with dropdowns
+        let mut picker_row = Row::new()
             .padding(4)
             .spacing(8)
-            .height(Length::Units(64))
-            .push(form_picker)
-            .push(exercise_picker)
+            .height(Length::Units(48))
+            .align_items(Alignment::Center);
+
+        // Count off and recording symbol at the bottom
+        let count_off_text = format!(
+            "{}",
+            current_state.beat_pos.map(|b| countoff(b)).unwrap_or("")
+        );
+        let count_off = Container::new(Text::new(count_off_text).color(Color::WHITE))
+            .style(MyContainerStyle {
+                background: Some(Background::Color(if current_state.is_recording() {
+                    colors::BRIGHT_RED
+                } else {
+                    colors::GREY
+                })),
+                border_radius: 50.0,
+                ..Default::default()
+            })
+            .padding(3)
+            .width(Length::Units(26))
+            .height(Length::Units(26))
+            .center_x()
+            .center_y();
+
+        // Analysis or correction toggle
+        let analysis_or_correction_toggle = Row::new()
             .push(
-                Container::new(count_off_text)
-                    .style(MyContainerStyle {
-                        background: Some(Background::Color(Color::from_rgb8(230, 230, 230))),
-                        border_radius: 5.0,
-                        border_width: 2.0,
-                        border_color: Color::BLACK,
-                        ..Default::default()
-                    })
-                    .padding(3)
-                    .width(Length::Units(32))
-                    .height(Length::Units(32)),
-            );
+                Text::new("ANALYSIS")
+                    .size(18)
+                    .width(Length::Fill)
+                    .horizontal_alignment(Horizontal::Right),
+            )
+            .push(
+                Toggler::new(
+                    self.show_correction_instead_of_analysis,
+                    None,
+                    Message::AnalysisOrCorrection,
+                )
+                .style(MyTogglerStyle {})
+                .width(Length::Shrink),
+            )
+            .push(
+                Text::new("CORRECTION")
+                    .size(18)
+                    .width(Length::Fill)
+                    .horizontal_alignment(Horizontal::Left),
+            )
+            .spacing(4);
+
+        let expected_or_found_toggle = Row::new()
+            .push(
+                Text::new("FOUND")
+                    .size(18)
+                    .width(Length::Fill)
+                    .horizontal_alignment(Horizontal::Right),
+            )
+            .push(
+                Toggler::new(
+                    self.show_expected_instead_of_found_in_correction,
+                    None,
+                    Message::ExpectedOrFound,
+                )
+                .style(MyTogglerStyle {})
+                .width(Length::Shrink),
+            )
+            .push(
+                Text::new("EXPECTED")
+                    .size(18)
+                    .width(Length::Fill)
+                    .horizontal_alignment(Horizontal::Left),
+            )
+            .spacing(4);
+
+        let chord_tone_or_degree_toggle = Row::new()
+            .push(
+                Text::new("NOTE")
+                    .size(18)
+                    .width(Length::Fill)
+                    .horizontal_alignment(Horizontal::Right),
+            )
+            .push(
+                Toggler::new(
+                    self.show_chord_tone_instead_of_degree_in_analysis,
+                    None,
+                    Message::ChordToneOrDegree,
+                )
+                .style(MyTogglerStyle {})
+                .width(Length::Shrink),
+            )
+            .push(
+                Text::new("CHORD TONE")
+                    .size(18)
+                    .width(Length::Fill)
+                    .horizontal_alignment(Horizontal::Left),
+            )
+            .spacing(4);
+
+        // Integrate the dropdown, toggle switch, and count off in a single menu
+        if !current_state.is_recording() {
+            picker_row = picker_row.push(form_picker).push(exercise_picker);
+        } else {
+            picker_row = picker_row.push(count_off);
+        }
+
+        let mut menu_column = Column::new().align_items(Alignment::Center);
+
+        if current_state.analysis.is_some() && current_state.correction.is_some() {
+            menu_column = menu_column.push(analysis_or_correction_toggle);
+
+            if self.show_correction_instead_of_analysis {
+                menu_column = menu_column.push(expected_or_found_toggle)
+            } else {
+                menu_column = menu_column.push(chord_tone_or_degree_toggle)
+            }
+        }
+
+        menu_column = menu_column.push(picker_row);
 
         Column::new()
-            .push(
-                Text::new(format!("{}", current_state.selected_form))
-                    .font(fonts::EB_GARAMOND_MEDIUM)
-                    .size(40)
-                    .horizontal_alignment(alignment::Horizontal::Center)
-                    .width(Length::Fill),
-            )
+            .push(title)
             .push(form_and_correction)
             .push(Space::new(Length::Units(0), Length::Fill))
-            .push(picker_row)
+            .push(menu_column)
+            .align_items(Alignment::Center)
             .into()
     }
 
@@ -358,37 +604,5 @@ fn countoff(beat_pos: f64) -> &'static str {
         6 => "3",
         7 => "4",
         _ => "",
-    }
-}
-
-pub struct MyContainerStyle {
-    pub text_color: Option<Color>,
-    pub background: Option<Background>,
-    pub border_radius: f32,
-    pub border_width: f32,
-    pub border_color: Color,
-}
-
-impl Default for MyContainerStyle {
-    fn default() -> Self {
-        Self {
-            text_color: Default::default(),
-            background: Default::default(),
-            border_radius: Default::default(),
-            border_width: Default::default(),
-            border_color: Default::default(),
-        }
-    }
-}
-
-impl container::StyleSheet for MyContainerStyle {
-    fn style(&self) -> container::Style {
-        container::Style {
-            text_color: self.text_color,
-            background: self.background,
-            border_radius: self.border_radius,
-            border_width: self.border_width,
-            border_color: self.border_color,
-        }
     }
 }

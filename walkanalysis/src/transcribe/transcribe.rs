@@ -14,7 +14,7 @@ use crate::form::note::Note;
 /// leaving holes where it doesn't know
 #[derive(Debug, Clone)]
 pub struct Transcription {
-    pub(crate) notes: Vec<PlayedNote>,
+    pub notes: Vec<PlayedNote>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
