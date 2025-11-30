@@ -209,19 +209,21 @@ impl<'a> WrittenBar<'a> {
             FormPiece::Key(_) => unreachable!(),
             FormPiece::LineBreak => unreachable!(),
             FormPiece::CountOff => unreachable!(),
-            FormPiece::ChordBar(chord) => Text::new(ascii(format!("{}", chord.flat_symbol())))
-                .font(fonts::EB_GARAMOND_MEDIUM)
-                .size(CHORD_SYMBOL_SIZE)
-                .into(), // TODO: determine sharp / flat from form
+            FormPiece::ChordBar(chord) => {
+                Text::new(ascii(format!("{}", chord.spell_symbol(spelling))))
+                    .font(fonts::EB_GARAMOND_MEDIUM)
+                    .size(CHORD_SYMBOL_SIZE)
+                    .into()
+            } // TODO: determine sharp / flat from form
             FormPiece::HalfBar(chord1, chord2) => Row::new()
                 .push(
-                    Text::new(ascii(format!("{}", chord1.flat_symbol())))
+                    Text::new(ascii(format!("{}", chord1.spell_symbol(spelling))))
                         .font(fonts::EB_GARAMOND_MEDIUM)
                         .size(CHORD_SYMBOL_SIZE)
                         .width(Length::Fill),
                 )
                 .push(
-                    Text::new(ascii(format!("{}", chord2.flat_symbol())))
+                    Text::new(ascii(format!("{}", chord2.spell_symbol(spelling))))
                         .font(fonts::EB_GARAMOND_MEDIUM)
                         .size(CHORD_SYMBOL_SIZE)
                         .width(Length::Fill),
@@ -276,7 +278,7 @@ impl<'a> WrittenBar<'a> {
                     ))
                     .style(MyContainerStyle {
                         background: if self.current_beat == Some(i) {
-                            Some(Background::Color(colors::RED))
+                            Some(Background::Color(colors::BRIGHT_RED))
                         } else {
                             None
                         },

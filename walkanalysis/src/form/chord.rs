@@ -10,11 +10,15 @@ use super::note::Spelling;
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Chord {
     pub notes: Vec<Note>,
+    pub symbol: Option<String>,
 }
 
 impl Chord {
     pub fn new(notes: Vec<Note>) -> Self {
-        Self { notes }
+        Self {
+            notes,
+            symbol: None,
+        }
     }
 
     pub fn has_seventh(&self) -> bool {
@@ -39,12 +43,6 @@ impl Chord {
         WrittenChord {
             notes: self.notes.iter().map(|n| n.sharp()).collect(),
         }
-    }
-
-    pub fn minor(root: Note) -> Self {
-        let third = root.add_interval(Interval::MinorThird);
-        let fifth = root.add_interval(Interval::PerfectFifth);
-        Chord::new(vec![root, third, fifth])
     }
 
     pub fn auto_spell(&self) -> WrittenChord {
@@ -78,6 +76,10 @@ impl Chord {
         // if it has a tritone, add b5
         // if it has a minor seventh, add 7
         // if it has a major seventh, add maj7
+
+        if self.symbol.is_some() {
+            return self.symbol.clone();
+        }
 
         let interval = |note_index_bottom, note_index_top| {
             self.notes
@@ -114,6 +116,13 @@ impl Chord {
             symbol.push_str("maj7");
         }
         Some(symbol)
+    }
+
+    pub fn spell_symbol(&self, spelling: Spelling) -> String {
+        match spelling {
+            Spelling::Sharp => self.sharp_symbol(),
+            Spelling::Flat => self.sharp_symbol(),
+        }
     }
 
     pub fn flat_symbol(&self) -> String {

@@ -62,7 +62,8 @@ impl pick_list::StyleSheet for MyPicklistStyle {
 
     fn hovered(&self) -> pick_list::Style {
         pick_list::Style {
-            border_width: 2.0,
+            text_color: Color::WHITE,
+            background: Background::Color(colors::GREEN),
             ..Self::active(&self)
         }
     }

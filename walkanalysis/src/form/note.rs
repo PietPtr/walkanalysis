@@ -110,54 +110,70 @@ impl Note {
     pub fn min(&self) -> Chord {
         let third = self.add_interval(Interval::MinorThird);
         let fifth = self.add_interval(Interval::PerfectFifth);
-        Chord::new(vec![*self, third, fifth])
+        let mut chord = Chord::new(vec![*self, third, fifth]);
+        chord.symbol = Some("m".into());
+        chord
     }
 
     pub fn maj(&self) -> Chord {
         let third = self.add_interval(Interval::MajorThird);
         let fifth = self.add_interval(Interval::PerfectFifth);
-        Chord::new(vec![*self, third, fifth])
+        let mut chord = Chord::new(vec![*self, third, fifth]);
+        chord.symbol = Some("maj".into());
+        chord
     }
 
     pub fn maj7(&self) -> Chord {
         let third = self.add_interval(Interval::MajorThird);
         let fifth = self.add_interval(Interval::PerfectFifth);
         let seventh = self.add_interval(Interval::MajorSeventh);
-        Chord::new(vec![*self, third, fifth, seventh])
+        let mut chord = Chord::new(vec![*self, third, fifth, seventh]);
+        chord.symbol = Some("maj7".into());
+        chord
     }
 
     pub fn min7(&self) -> Chord {
         let third = self.add_interval(Interval::MinorThird);
         let fifth = self.add_interval(Interval::PerfectFifth);
         let seventh = self.add_interval(Interval::MinorSeventh);
-        Chord::new(vec![*self, third, fifth, seventh])
+        let mut chord = Chord::new(vec![*self, third, fifth, seventh]);
+        chord.symbol = Some("min7".into());
+        chord
     }
 
     pub fn dominant7(&self) -> Chord {
         let third = self.add_interval(Interval::MajorThird);
         let fifth = self.add_interval(Interval::PerfectFifth);
         let seventh = self.add_interval(Interval::MinorSeventh);
-        Chord::new(vec![*self, third, fifth, seventh])
+        let mut chord = Chord::new(vec![*self, third, fifth, seventh]);
+        chord.symbol = Some("7".into());
+        chord
     }
 
     pub fn dim(&self) -> Chord {
         let third = self.add_interval(Interval::MinorThird);
         let fifth = self.add_interval(Interval::DiminishedFifth);
-        Chord::new(vec![*self, third, fifth])
+        let mut chord = Chord::new(vec![*self, third, fifth]);
+        chord.symbol = Some("dim".into());
+        chord
     }
 
     pub fn m7b5(&self) -> Chord {
         let third = self.add_interval(Interval::MinorThird);
         let fifth = self.add_interval(Interval::DiminishedFifth);
         let seventh = self.add_interval(Interval::MinorSeventh);
-        Chord::new(vec![*self, third, fifth, seventh])
+        let mut chord = Chord::new(vec![*self, third, fifth, seventh]);
+        chord.symbol = Some("m7b5".into());
+        chord
     }
 
     pub fn dim7(&self) -> Chord {
         let third = self.add_interval(Interval::MinorThird);
         let fifth = third.add_interval(Interval::MinorThird);
         let seventh = fifth.add_interval(Interval::MinorThird);
-        Chord::new(vec![*self, third, fifth, seventh])
+        let mut chord = Chord::new(vec![*self, third, fifth, seventh]);
+        chord.symbol = Some("dim7".into());
+        chord
     }
 
     pub fn from_frequency(frequency: f32) -> Self {

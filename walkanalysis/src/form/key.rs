@@ -126,17 +126,26 @@ impl Display for WrittenKey {
 
 impl WrittenKey {
     pub fn spell_preference(&self) -> Spelling {
-        match self.quality {}
         match self.root.accidental {
             Accidental::Natural => (),
             Accidental::Sharp => return Spelling::Sharp,
             Accidental::Flat => return Spelling::Flat,
         }
-        match self.root.name {
-            NoteName::A | NoteName::B | NoteName::C | NoteName::D | NoteName::E | NoteName::G => {
-                Spelling::Sharp
-            }
-            NoteName::F => Spelling::Flat,
+
+        match self.quality {
+            Quality::Major => match self.root.name {
+                NoteName::A
+                | NoteName::B
+                | NoteName::C
+                | NoteName::D
+                | NoteName::E
+                | NoteName::G => Spelling::Sharp,
+                NoteName::F => Spelling::Flat,
+            },
+            Quality::Minor => match self.root.name {
+                NoteName::A | NoteName::B | NoteName::E => Spelling::Sharp,
+                NoteName::D | NoteName::C | NoteName::F | NoteName::G => Spelling::Flat,
+            },
         }
     }
 
