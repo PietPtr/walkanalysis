@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use walkanalysis::{
-    exercise::{analysis::Analysis, arpeggios_up::ArpeggiosUp, Exercise},
+    analysis::analysis::Analysis,
+    exercise::{arpeggios_up::ArpeggiosUp, Exercise},
     form::form::Form,
     transcribe::transcribe::{save_beat_data, Transcription, DEFAULT_SETTINGS},
 };

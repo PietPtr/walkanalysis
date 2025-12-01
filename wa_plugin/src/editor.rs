@@ -9,7 +9,11 @@ use std::sync::{Arc, RwLock};
 use nih_plug::prelude::{Editor, GuiContext};
 use nih_plug_iced::{alignment::Horizontal, *};
 use walkanalysis::{
-    exercise::analysis::{Analysis, Correction, Mistake, MistakeKind, NoteAnalysis},
+    analysis::{
+        analysis::{Analysis, NoteAnalysis},
+        correction::Correction,
+        mistake::{Mistake, MistakeKind},
+    },
     form::{
         form::{Form, FormPiece},
         key,
@@ -39,6 +43,7 @@ fn ascii(str: String) -> String {
 }
 
 /// All the state shared between audio and UI thread
+#[derive(Debug, Clone)]
 pub struct WalkanalysisSharedState {
     pub selected_form: FormKind,
     pub form: Form,
@@ -127,6 +132,17 @@ impl<'a> WrittenBar<'a> {
                     Some(played)
                 }
             }
+            MistakeKind::ExpectedChordTone {
+                played_chord_tone: _,
+                played_note,
+                expected_example,
+            } => {
+                if show_expected_instead_of_found_in_correction {
+                    Some(expected_example)
+                } else {
+                    Some(played_note)
+                }
+            }
             _ => note,
         };
 
@@ -134,10 +150,24 @@ impl<'a> WrittenBar<'a> {
             .map(|n| ascii(format!("{}", n.spell(spelling))))
             .unwrap_or("?".into());
 
+        let color = match mistake.mistake {
+            MistakeKind::WrongNote {
+                played: _,
+                expected: _,
+            } => colors::RED,
+            MistakeKind::ExpectedSilence { found: _ } => colors::GREY,
+            MistakeKind::ExpectedNote { found: _ } => colors::GREY,
+            MistakeKind::ExpectedChordTone {
+                played_chord_tone: _,
+                played_note: _,
+                expected_example: _,
+            } => colors::ORANGE,
+        };
+
         // TODO: display what the mistake was exactly somehow (color, probably?)
         Container::new(Text::new(note_text).color(Color::WHITE))
             .style(MyContainerStyle {
-                background: Some(Background::Color(colors::RED)),
+                background: Some(Background::Color(color)),
                 border_radius: 4.,
                 ..Default::default()
             })
@@ -311,7 +341,11 @@ type WalkanalysisInitializationType = Arc<RwLock<WalkanalysisSharedState>>;
 
 impl WalkanalysisEditor {
     fn view_form_and_correction<'a>(&self) -> Element<'a, Message> {
-        let current_state = self.state.read().unwrap();
+        let current_state = {
+            let guard = self.state.read().unwrap();
+            guard.clone()
+        };
+
         let form = &current_state.form;
         let mut column = Column::new();
         let new_row = || {
@@ -442,7 +476,10 @@ impl IcedEditor for WalkanalysisEditor {
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
-        let current_state = self.state.read().unwrap();
+        let current_state = {
+            let guard = self.state.read().unwrap();
+            guard.clone()
+        };
 
         // Title
         let title = Text::new(format!(

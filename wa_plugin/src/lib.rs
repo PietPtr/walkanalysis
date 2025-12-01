@@ -10,7 +10,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 use walkanalysis::{
-    exercise::{analysis::Analysis, arpeggios_up::ArpeggiosUp, Exercise},
+    analysis::analysis::Analysis,
+    exercise::{arpeggios_up::ArpeggiosUp, chord_tones::ChordTones, Exercise},
     form::{
         form::Form,
         songs::{autumn_leaves::autumn_leaves, but_beautiful::but_beautiful, test::test},
@@ -23,6 +24,7 @@ use crate::editor::WalkanalysisSharedState;
 #[derive(Debug, Enum, PartialEq, Clone, Copy, Eq)]
 pub enum ExerciseKind {
     ArpeggiosUp,
+    ChordTones,
 }
 
 unsafe impl Sync for ExerciseKind {}
@@ -31,16 +33,18 @@ impl ExerciseKind {
     pub fn exercise(&self) -> Box<dyn Exercise> {
         match self {
             ExerciseKind::ArpeggiosUp => Box::new(ArpeggiosUp {}),
+            ExerciseKind::ChordTones => Box::new(ChordTones {}),
         }
     }
 
-    const ALL: [ExerciseKind; 1] = [ExerciseKind::ArpeggiosUp];
+    const ALL: [ExerciseKind; 2] = [ExerciseKind::ArpeggiosUp, ExerciseKind::ChordTones];
 }
 
 impl Display for ExerciseKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExerciseKind::ArpeggiosUp => write!(f, "Arpeggios Up"),
+            ExerciseKind::ChordTones => write!(f, "Chord Tones"),
         }
     }
 }

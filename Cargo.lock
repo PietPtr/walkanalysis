@@ -2456,6 +2456,7 @@ name = "walkanalysis"
 version = "0.1.0"
 dependencies = [
  "hound",
+ "rand",
  "rustfft",
  "serde",
  "serde_json",

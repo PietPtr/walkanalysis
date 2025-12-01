@@ -1,5 +1,5 @@
 use walkanalysis::{
-    exercise::analysis::{Analysis, NoteAnalysis},
+    analysis::analysis::{Analysis, NoteAnalysis},
     form::{
         chord::ChordTone,
         form::{bar, Form},

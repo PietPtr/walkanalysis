@@ -121,7 +121,7 @@ impl Chord {
     pub fn spell_symbol(&self, spelling: Spelling) -> String {
         match spelling {
             Spelling::Sharp => self.sharp_symbol(),
-            Spelling::Flat => self.sharp_symbol(),
+            Spelling::Flat => self.flat_symbol(),
         }
     }
 
