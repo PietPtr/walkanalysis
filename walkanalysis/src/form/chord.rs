@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::form::{
@@ -180,7 +182,7 @@ impl std::fmt::Display for WrittenChord {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChordTone {
     Root,
     Third,
@@ -207,6 +209,18 @@ impl ChordTone {
             ChordTone::Fifth => 2,
             ChordTone::Seventh => 3,
             ChordTone::NoChordTone => 99,
+        }
+    }
+}
+
+impl Display for ChordTone {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChordTone::Root => write!(f, "Root"),
+            ChordTone::Third => write!(f, "Third"),
+            ChordTone::Fifth => write!(f, "Fifth"),
+            ChordTone::Seventh => write!(f, "Seventh"),
+            ChordTone::NoChordTone => write!(f, "Not a chord tone"),
         }
     }
 }

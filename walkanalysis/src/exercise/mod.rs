@@ -16,6 +16,7 @@ use crate::{
 
 pub mod arpeggios_up;
 pub mod chord_tones;
+pub mod two_beat;
 
 pub trait Exercise {
     /// User facing explanation about what must be played for a perfect score
