@@ -10,6 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::form::note::Note;
 
+const POSSIBLE_ROOT_RELATIVE_HEIGHT_TO_DOMINANT: f32 = 0.13;
+
+// Look at these portions of the beat to determine the note
+const START_OFFSET: f64 = 0.05;
+const END_OFFSET: f64 = 0.60;
+
 /// Given a wav file and a tempo, works out the notes that were played,
 /// leaving holes where it doesn't know
 #[derive(Debug, Clone)]
@@ -36,12 +42,20 @@ pub struct BeatData {
     samples: Vec<f32>,
 }
 
-pub fn save_beat_data(beat_data: &Vec<BeatData>, path: &Path) -> Result<(), Box<dyn Error>> {
-    // Save all the beat data for debugging purposes
-    let mut file = File::create(PathBuf::from(path))?;
-    file.write_all(serde_json::to_string(beat_data)?.as_bytes())?;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TranscriptionData {
+    beat_data: Vec<BeatData>,
+    sample_rate: u32,
+}
 
-    Ok(())
+impl TranscriptionData {
+    pub fn save(&self, path: &Path) -> Result<(), Box<dyn Error>> {
+        // Save all the beat data for debugging purposes
+        let mut file = File::create(PathBuf::from(path))?;
+        file.write_all(serde_json::to_string(&self)?.as_bytes())?;
+
+        Ok(())
+    }
 }
 
 pub struct TranscriptionSettings {
@@ -61,7 +75,7 @@ impl Transcription {
         path: &Path,
         tempo: f32,
         transcription_settings: TranscriptionSettings,
-    ) -> Result<(Self, Vec<BeatData>), Box<dyn Error>> {
+    ) -> Result<(Self, TranscriptionData), Box<dyn Error>> {
         // open file
         let mut reader = hound::WavReader::open(path)?;
         let spec = reader.spec();
@@ -88,16 +102,12 @@ impl Transcription {
         tempo: f32,
         transcription_settings: TranscriptionSettings,
         audio_settings: AudioSettings,
-    ) -> (Self, Vec<BeatData>) {
+    ) -> (Self, TranscriptionData) {
         let samples_per_second = audio_settings.sample_rate as f64;
         let beats_per_second = tempo as f64 / 60.;
         let samples_per_beat = (samples_per_second / beats_per_second).round() as usize;
 
         let samples_split_per_beat = samples.chunks_exact(samples_per_beat);
-
-        // Look at these portions of the beat to determine the note
-        const START_OFFSET: f64 = 0.05;
-        const END_OFFSET: f64 = 0.60;
 
         let start_position = (START_OFFSET * samples_per_beat as f64).round() as usize;
         let end_position = (END_OFFSET * samples_per_beat as f64).round() as usize;
@@ -105,17 +115,25 @@ impl Transcription {
         let mut planner = FftPlanner::<f32>::new();
         let fft = planner.plan_fft_forward(window_len);
 
-        let mut beat_data = Vec::new();
+        let mut transcription_data = TranscriptionData {
+            beat_data: Vec::new(),
+            sample_rate: audio_settings.sample_rate,
+        };
 
         for (beat_number, beat) in samples_split_per_beat.enumerate() {
             let relevant_samples = &beat[start_position..end_position];
+            let upsampled = relevant_samples;
+            let sample_rate = audio_settings.sample_rate;
 
-            let mut buffer: Vec<Complex<f32>> = relevant_samples
+            let mut buffer: Vec<Complex<f32>> = upsampled
                 .iter()
                 .map(|&x| Complex::new(x as f32, 0.0))
                 .collect();
 
             fft.process(&mut buffer);
+
+            let dc_component = buffer.get_mut(0).unwrap();
+            *dc_component = Complex::new(0., 0.); // Get rid of DC part
 
             let half = buffer.len() / 2;
             let (max_idx, max_mag) = buffer
@@ -126,12 +144,10 @@ impl Transcription {
                 .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
                 .unwrap();
 
-            let dominant_freq_hz =
-                max_idx as f32 * audio_settings.sample_rate as f32 / buffer.len() as f32;
+            let dominant_freq_hz = max_idx as f32 * sample_rate as f32 / buffer.len() as f32;
 
             // Dominant frequency is usually not the root, take every peakt that's over some percentage of the height of dominant,
             // the lowest frequency there is the root
-            const POSSIBLE_ROOT_RELATIVE_HEIGHT_TO_DOMINANT: f32 = 0.8;
             let possible_roots = buffer
                 .iter()
                 .take(half)
@@ -141,16 +157,53 @@ impl Transcription {
                 })
                 .collect::<Vec<_>>();
 
-            let root_freq_hz = possible_roots.first().map(|(root_index, _)| {
-                (*root_index as f32) * audio_settings.sample_rate as f32 / buffer.len() as f32
+            let bin_as_freq = |bin| (bin as f32) * sample_rate as f32 / buffer.len() as f32;
+
+            let root_freq_hz: Option<f32> = possible_roots.first().and_then(|(bin, _power)| {
+                if *bin == 0 {
+                    println!("DC showed up as possible root, ignoring.");
+                    return None; // DC, useless, and filtered out earlier
+                }
+
+                let center_bin = *bin;
+                let left_bin = center_bin - 1;
+                let right_bin = center_bin + 1;
+
+                let center_power = buffer.get(center_bin)?.norm_sqr();
+                let left_power = buffer.get(left_bin)?.norm_sqr();
+                let right_power = buffer.get(right_bin)?.norm_sqr();
+
+                let (other_power, other_bin, sign) = if left_power > right_power {
+                    (left_power, left_bin, -1.)
+                } else {
+                    (right_power, right_bin, 1.)
+                };
+
+                let center_freq = bin_as_freq(center_bin);
+                let other_freq = bin_as_freq(other_bin);
+
+                let freq_diff = (center_freq - other_freq).abs();
+
+                let freq_offset = (1.0 - (center_power / (center_power + other_power))) * freq_diff;
+
+                Some(center_freq + freq_offset * sign)
             });
 
-            let note = root_freq_hz.map(|freq| Note::from_frequency(freq));
+            let note = root_freq_hz.and_then(|freq| {
+                let (note, error) = Note::from_frequency(freq);
+                if error > 0.5 {
+                    // Note is more than 25 cents sharp or flat
+                    println!("Found {} with large error: {error}", note.flat());
+                    None
+                } else {
+                    Some(note)
+                }
+            });
 
-            beat_data.push(BeatData {
+            transcription_data.beat_data.push(BeatData {
                 number: beat_number,
                 samples: Vec::from(relevant_samples),
-                fft: buffer.iter().map(|c| c.norm()).collect(),
+                fft: buffer.iter().map(|c| c.norm_sqr()).collect(),
                 dominant_frequency: dominant_freq_hz,
                 root_frequency: root_freq_hz,
                 maximum_amplitude: relevant_samples.iter().copied().reduce(f32::max).unwrap(),
@@ -163,7 +216,7 @@ impl Transcription {
 
         let mut result = vec![];
 
-        for beat in beat_data.iter() {
+        for beat in transcription_data.beat_data.iter() {
             let Some(note) = beat.note else {
                 result.push(PlayedNote::Unknown);
                 continue;
@@ -178,6 +231,6 @@ impl Transcription {
             result.push(PlayedNote::Surely(note));
         }
 
-        (Transcription { notes: result }, beat_data)
+        (Transcription { notes: result }, transcription_data)
     }
 }

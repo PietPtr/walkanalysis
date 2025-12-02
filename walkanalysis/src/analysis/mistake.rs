@@ -14,9 +14,10 @@ impl Display for Mistake {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{}.{}] {}",
+            "[{}.{} | {}] {}",
             self.beat / 4 + 1,
             self.beat % 4 + 1,
+            self.beat,
             self.mistake
         )
     }

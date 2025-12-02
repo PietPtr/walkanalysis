@@ -1,5 +1,5 @@
 use rand::seq::IndexedRandom;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     analysis::{
@@ -13,8 +13,24 @@ use crate::{
 
 use super::common_mistakes;
 
+pub fn two_beat_thirds() -> TwoBeat {
+    TwoBeat {
+        allowed_chord_tones_in_second_half: vec![ChordTone::Third],
+    }
+}
+pub fn two_beat_fifths() -> TwoBeat {
+    TwoBeat {
+        allowed_chord_tones_in_second_half: vec![ChordTone::Fifth],
+    }
+}
+pub fn two_beat() -> TwoBeat {
+    TwoBeat {
+        allowed_chord_tones_in_second_half: vec![ChordTone::Third, ChordTone::Fifth],
+    }
+}
+
 pub struct TwoBeat {
-    pub allowed_chord_tones_in_second_half: HashSet<ChordTone>,
+    pub allowed_chord_tones_in_second_half: Vec<ChordTone>,
 }
 
 impl Exercise for TwoBeat {
@@ -51,40 +67,47 @@ impl Exercise for TwoBeat {
 
             let beat_in_bar = beat % 4;
             if beat_in_bar == 0 {
-                if chord_tone != ChordTone::Root {
-                    mistakes.insert(
-                        beat,
-                        Mistake {
-                            beat,
-                            mistake: MistakeKind::WrongNote {
-                                played: note,
-                                expected: chord.note(ChordTone::Root).unwrap(), // TODO: exercise incompatibility with a form causes unwraps like these to trigger
+                for b in 0..1 {
+                    if chord_tone != ChordTone::Root {
+                        mistakes.insert(
+                            beat + b,
+                            Mistake {
+                                beat: beat + b,
+                                mistake: MistakeKind::WrongNote {
+                                    played: note,
+                                    expected: chord.note(ChordTone::Root).unwrap(), // TODO: exercise incompatibility with a form causes unwraps like these to trigger
+                                },
                             },
-                        },
-                    );
+                        );
+                    }
                 }
             } else if beat_in_bar == 2 {
                 if !self
                     .allowed_chord_tones_in_second_half
                     .contains(&chord_tone)
                 {
-                    mistakes.insert(
-                        beat,
-                        Mistake {
-                            beat,
-                            mistake: MistakeKind::ExpectedChordTone {
-                                played_chord_tone: chord_tone,
-                                played_note: note,
-                                expected_example: chord.note(
-                                    self.allowed_chord_tones_in_second_half
-                                        .iter()
-                                        .collect::<Vec<_>>()
-                                        .choose(&mut rand::rng())
+                    for b in 0..1 {
+                        mistakes.insert(
+                            beat + b,
+                            Mistake {
+                                beat: beat + b,
+                                mistake: MistakeKind::ExpectedChordTone {
+                                    played_chord_tone: chord_tone,
+                                    played_note: note,
+                                    expected_example: chord
+                                        .note(
+                                            **self
+                                                .allowed_chord_tones_in_second_half
+                                                .iter()
+                                                .collect::<Vec<_>>()
+                                                .choose(&mut rand::rng())
+                                                .unwrap(),
+                                        )
                                         .unwrap(),
-                                ),
+                                },
                             },
-                        },
-                    );
+                        );
+                    }
                 }
             }
         }

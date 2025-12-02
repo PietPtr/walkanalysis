@@ -1,93 +1,22 @@
 pub mod colors;
 mod editor;
+pub mod exercises;
 pub mod fonts;
+pub mod forms;
 pub mod styles;
 
+use exercises::ExerciseKind;
+use forms::FormKind;
 use nih_plug::prelude::*;
 use nih_plug_iced::IcedState;
-use std::{
-    fmt::Display,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 use walkanalysis::{
     analysis::analysis::Analysis,
-    exercise::{arpeggios_up::ArpeggiosUp, chord_tones::ChordTones, Exercise},
-    form::{
-        form::Form,
-        songs::{autumn_leaves::autumn_leaves, but_beautiful::but_beautiful, test::test},
-    },
+    form::form::Form,
     transcribe::transcribe::{AudioSettings, Transcription, DEFAULT_SETTINGS},
 };
 
 use crate::editor::WalkanalysisSharedState;
-
-#[derive(Debug, Enum, PartialEq, Clone, Copy, Eq)]
-pub enum ExerciseKind {
-    ArpeggiosUp,
-    ChordTones,
-}
-
-unsafe impl Sync for ExerciseKind {}
-
-impl ExerciseKind {
-    pub fn exercise(&self) -> Box<dyn Exercise> {
-        match self {
-            ExerciseKind::ArpeggiosUp => Box::new(ArpeggiosUp {}),
-            ExerciseKind::ChordTones => Box::new(ChordTones {}),
-        }
-    }
-
-    const ALL: [ExerciseKind; 2] = [ExerciseKind::ArpeggiosUp, ExerciseKind::ChordTones];
-}
-
-impl Display for ExerciseKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ExerciseKind::ArpeggiosUp => write!(f, "Arpeggios Up"),
-            ExerciseKind::ChordTones => write!(f, "Chord Tones"),
-        }
-    }
-}
-
-#[derive(Default, Debug, Enum, PartialEq, Clone, Copy, Eq)]
-pub enum FormKind {
-    #[default]
-    Test,
-    AutumnLeaves,
-    AllTheThingsYouAre,
-    ButBeautiful,
-}
-
-impl Display for FormKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FormKind::Test => write!(f, "Test"),
-            FormKind::AutumnLeaves => write!(f, "Autumn Leaves"),
-            FormKind::AllTheThingsYouAre => write!(f, "All The Things You Are"),
-            FormKind::ButBeautiful => write!(f, "But Beautiful"),
-        }
-    }
-}
-
-impl FormKind {
-    pub fn form(&self) -> Form {
-        match self {
-            FormKind::AutumnLeaves => autumn_leaves(),
-            FormKind::Test => test(),
-            FormKind::AllTheThingsYouAre => todo!(),
-            FormKind::ButBeautiful => but_beautiful(),
-        }
-    }
-
-    const ALL: [FormKind; 3] = [
-        FormKind::Test,
-        // FormKind::AllTheThingsYouAre,
-        FormKind::AutumnLeaves,
-        FormKind::ButBeautiful,
-    ];
-}
-
-unsafe impl Sync for FormKind {}
 
 pub struct WalkAnalysis {
     params: Arc<WalkAnalysisParams>,
@@ -181,8 +110,6 @@ impl Plugin for WalkAnalysis {
 
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-    // The first audio IO layout is used as the default. The other layouts may be selected either
-    // explicitly or automatically by the host or the user depending on the plugin API/backend.
     const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[AudioIOLayout {
         main_input_channels: NonZeroU32::new(1),
         main_output_channels: NonZeroU32::new(1),
@@ -190,9 +117,6 @@ impl Plugin for WalkAnalysis {
         aux_input_ports: &[],
         aux_output_ports: &[],
 
-        // Individual ports and the layout as a whole can be named here. By default these names
-        // are generated as needed. This layout will be called 'Stereo', while a layout with
-        // only one input and output channel would be called 'Mono'.
         names: PortNames::const_default(),
     }];
 
@@ -245,6 +169,10 @@ impl Plugin for WalkAnalysis {
                 && context.transport().bar_number() == Some(0)
                 && context.transport().pos_beats() <= Some(0.)
             {
+                {
+                    let mut state = self.state.write().unwrap();
+                    state.clear();
+                }
                 self.data.acquizition_state = DataAcquizitionState::Acquiring;
                 let current_form = self.state.read().unwrap().selected_form;
 
@@ -287,8 +215,8 @@ impl Plugin for WalkAnalysis {
             }
 
             let Some(tempo) = self.data.tempo else {
-                self.clear();
                 println!("No tempo known at this point, cannot analyze.");
+                self.clear();
                 return ProcessStatus::Normal;
             };
 
