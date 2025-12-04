@@ -172,17 +172,16 @@ impl Note {
     /// Returns the note closest to that frequency, and the error.
     /// Error = 0 means spot on the note, -1 is 50 cents flat, +1 si 50 cents sharp.
     pub fn from_frequency(frequency: f32) -> (Self, f32) {
+        if frequency <= 0. {
+            todo!("Neatly handle the frequence 0Hz case");
+        }
+
         let note_index_f = ((frequency / 55.0).log10() * 12.) / 2f32.log10();
 
-        let error = ((note_index_f + 0.5) % 1.0 + 0.5) * 2.0;
-        let note_index = note_index_f.round() as i32;
+        let error = (note_index_f + 0.5).rem_euclid(1.0) - 0.5;
+        let note_index = note_index_f.round() as i32 % 12;
 
-        (
-            Self {
-                index: note_index % 12,
-            },
-            error,
-        )
+        (Self { index: note_index }, error)
     }
 }
 

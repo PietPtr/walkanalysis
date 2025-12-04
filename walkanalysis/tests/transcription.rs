@@ -35,6 +35,16 @@ fn test_autumn_leaves() {
 }
 
 #[test]
+fn test_first_bit_of_autumn_leaves() {
+    let correction = test_transcription(
+        longer_test(),
+        "tests/data/audio/autumn_leaves.wav",
+        Box::new(ArpeggiosUp {}),
+    );
+    println!("{}", correction);
+}
+
+#[test]
 fn test_longer_test() {
     let correction = test_transcription(
         longer_test(),

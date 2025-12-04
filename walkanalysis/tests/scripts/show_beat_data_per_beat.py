@@ -7,7 +7,7 @@ from typing import List, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-START_BEAT = 13
+START_BEAT = 21
 FFT_CUTOFF = 400
 
 
@@ -18,16 +18,16 @@ class BeatData:
     fft: List[float]
     dominant_frequency: float
     root_frequency: float
+    note: str
 
 
 @dataclass
 class TranscriptionData:
     beat_data: List[BeatData]
     sample_rate: int
-    upsample_rate: int
 
 
-def load_beats(path: Path) -> List[TranscriptionData]:
+def load_beats(path: Path) -> TranscriptionData:
     with path.open("r", encoding="utf-8") as f:
         raw: Any = json.load(f)
 
@@ -42,19 +42,21 @@ def load_beats(path: Path) -> List[TranscriptionData]:
                 root_frequency=float(item["root_frequency"])
                 if item["root_frequency"] is not None
                 else None,
+                note=item["human_readable_note"],
             )
         )
     return TranscriptionData(
         beat_data=beats,
         sample_rate=raw["sample_rate"],
-        upsample_rate=raw["upsample_rate"],
     )
 
 
 def show_beats(data: TranscriptionData) -> None:
     for beat in data.beat_data[START_BEAT:]:
         fig, (ax_time, ax_freq) = plt.subplots(2, 1, figsize=(10, 6), sharex=False)
-        fig.suptitle(f"Beat {beat.beat_number} — root freq: {beat.root_frequency:.2f}")
+        fig.suptitle(
+            f"Beat {beat.beat_number} — root freq: {beat.root_frequency:.2f} = {beat.note}"
+        )
 
         # Time-domain samples
         ax_time.plot(range(len(beat.samples)), beat.samples)
@@ -77,7 +79,7 @@ def show_beats(data: TranscriptionData) -> None:
 
         plt.tight_layout()
         figManager = plt.get_current_fig_manager()
-        figManager.window.showMaximized()
+        # figManager.window.showMaximized()
         plt.show()
 
 

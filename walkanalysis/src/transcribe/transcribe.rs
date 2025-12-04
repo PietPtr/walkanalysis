@@ -191,9 +191,12 @@ impl Transcription {
 
             let note = root_freq_hz.and_then(|freq| {
                 let (note, error) = Note::from_frequency(freq);
-                if error > 0.5 {
-                    // Note is more than 25 cents sharp or flat
-                    println!("Found {} with large error: {error}", note.flat());
+                if error.abs() > 0.25 { TODO: set this very low and fix the UI bug of silence not appearing
+                    // Note is too sharp or flat
+                    println!(
+                        "{beat_number} Found {} with large error: {error}",
+                        note.flat()
+                    );
                     None
                 } else {
                     Some(note)
